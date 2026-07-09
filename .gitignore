@@ -13,6 +13,7 @@ data/uploads/*
 data/reports/*
 !data/reports/.gitkeep
 data/history.json
+data/contracts/
 data/security/
 runtime-logs/
 demo_assets/

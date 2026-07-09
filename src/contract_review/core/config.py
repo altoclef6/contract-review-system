@@ -27,6 +27,7 @@ class Settings(BaseSettings):
 
     upload_dir: Path = Path("data/uploads")
     report_dir: Path = Path("data/reports")
+    contract_data_dir: Path = Path("data/contracts")
     security_data_dir: Path = Path("data/security")
     max_upload_size_mb: int = 50
 
