@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>__APP_TITLE__</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <section id="api-gate" class="api-gate">
+    <div class="gate-visual">
+      <div class="gate-gridline"></div>
+      <div class="gate-panel">
+        <p class="eyebrow">模型接入 / 个人工作区</p>
+        <h1>绑定你的 AI 审查引擎</h1>
+        <p class="gate-copy">输入 DeepSeek 或 OpenAI 兼容接口配置后进入合同审查工作台。密钥只保存在当前浏览器，并随本次审查请求发送到后端。</p>
+
+        <form id="api-bind-form" class="api-bind-form">
+          <label>
+            <span>服务商</span>
+            <select id="api-provider">
+              <option value="deepseek">DeepSeek</option>
+              <option value="openai_compatible">OpenAI 兼容接口</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </label>
+
+          <label>
+            <span>API Key</span>
+            <input id="api-key" type="password" placeholder="sk-..." autocomplete="off" required>
+          </label>
+
+          <div class="gate-fields">
+            <label>
+              <span>模型名称</span>
+              <input id="api-model" type="text" value="deepseek-chat" required>
+            </label>
+            <label>
+              <span>Base URL</span>
+              <input id="api-base-url" type="url" value="https://api.deepseek.com/v1" required>
+            </label>
+          </div>
+
+          <button class="primary-action gate-action" type="submit">
+            <span>进入审查工作台</span>
+            <span class="action-code">绑定</span>
+          </button>
+          <p id="api-bind-status" class="gate-tip">如需更换 Key，可在工作台右上角重新绑定。</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div id="review-shell" class="shell is-hidden">
+    <aside class="rail" aria-label="系统导航">
+      <div class="rail-mark">合审</div>
+      <a class="rail-link is-active" href="/" title="审查工作台">审</a>
+      <a class="rail-link" href="/docs" title="接口文档">接口</a>
+      <a class="rail-link" href="/api/v1/health" target="_blank" title="健康检查">健康</a>
+    </aside>
+
+    <main class="workspace">
+      <header class="command-bar">
+        <div>
+          <p class="eyebrow">合同智能审查 / 多智能体协同</p>
+          <h1>__APP_TITLE__</h1>
+        </div>
+        <div class="system-state">
+          <span class="pulse"></span>
+          <span id="model-state">模型已绑定</span>
+          <button id="rebind-api" class="link-button" type="button">重新绑定</button>
+        </div>
+      </header>
+
+      <section class="top-grid">
+        <div class="upload-panel panel">
+          <div class="panel-title">
+            <h2>导入合同</h2>
+            <span>文档接入</span>
+          </div>
+          <form id="review-form" class="upload-form">
+            <label class="dropzone" for="contract-file">
+              <span class="drop-title">选择合同文件</span>
+              <span class="drop-copy">PDF / Word(.docx) / PNG / JPG / TIFF / BMP</span>
+              <input id="contract-file" name="合同文件" type="file" accept=".pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp" required>
+            </label>
+
+            <div class="agent-mini" aria-label="Agent 协同链路">
+              <span>协调</span>
+              <i></i>
+              <span>提取</span>
+              <i></i>
+              <span>合规</span>
+              <i></i>
+              <span>修订</span>
+            </div>
+
+            <button id="submit-btn" class="primary-action" type="submit">
+              <span>开始智能审查</span>
+              <span class="action-code">执行</span>
+            </button>
+            <p id="status" class="status-line">等待导入合同。</p>
+          </form>
+        </div>
+
+        <div class="brief-panel panel">
+          <div class="panel-title">
+            <h2>最近审查</h2>
+            <span>任务态势</span>
+          </div>
+          <div class="history-panel">
+            <div class="brief-grid">
+              <div><b>输入</b><span>多源合同</span></div>
+              <div><b>审查</b><span>规则 + AI</span></div>
+              <div><b>输出</b><span>风险与建议</span></div>
+              <div><b>归档</b><span>PDF / Word / JSON</span></div>
+            </div>
+            <div id="history-list" class="history-list">
+              <span class="history-empty">正在读取历史记录...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="result-layout">
+        <div class="panel result-panel">
+          <div class="panel-title">
+            <h2>审查结果</h2>
+            <em id="result-badge">待命</em>
+          </div>
+          <div id="result" class="result-body">
+            <div class="empty-state">
+              <strong>暂无审查任务</strong>
+              <span>上传合同后，系统会展示风险等级、风险卡片、修改建议和报告路径。</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

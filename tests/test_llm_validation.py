@@ -1,0 +1,27 @@
+from fastapi.testclient import TestClient
+
+from contract_review.core.config import get_settings
+from contract_review.main import create_app
+
+
+def test_llm_validate_requires_valid_key(monkeypatch) -> None:
+    monkeypatch.setenv("ENABLE_LLM", "true")
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    get_settings.cache_clear()
+
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/api/v1/llm/validate",
+            json={
+                "provider": "deepseek",
+                "api_key": "invalid-key",
+                "model_name": "deepseek-chat",
+                "base_url": "https://api.deepseek.com/v1",
+            },
+        )
+
+    assert response.status_code == 400
+    assert "验证失败" in response.json()["detail"]
+

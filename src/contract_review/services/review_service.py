@@ -1,0 +1,74 @@
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+from typing import Any
+
+from contract_review.core.config import Settings
+from contract_review.schemas.review import ReviewResponse
+from contract_review.services.document_loader import DocumentLoader
+from contract_review.services.history_service import HistoryService, build_history_item
+from contract_review.services.report_service import ReportService
+from contract_review.utils.id_generator import generate_review_id
+
+
+class ReviewService:
+    def __init__(self, graph: Any, settings: Settings) -> None:
+        self.graph = graph
+        self.settings = settings
+        self.document_loader = DocumentLoader(settings)
+        self.report_service = ReportService(settings.report_dir)
+        self.history_service = HistoryService(settings.report_dir.parent)
+
+    async def review_file(
+        self,
+        file_path: Path,
+        original_file_name: str,
+        content_type: str | None,
+        llm_config: dict[str, Any] | None = None,
+    ) -> ReviewResponse:
+        review_id = generate_review_id()
+        raw_text = await asyncio.to_thread(self.document_loader.load_text, file_path)
+        initial_state = {
+            "review_id": review_id,
+            "file_path": str(file_path),
+            "file_name": original_file_name,
+            "file_type": content_type,
+            "raw_text": raw_text,
+            "llm_config": llm_config or {},
+            "errors": [],
+        }
+        result = await self.graph.ainvoke(initial_state)
+        final_report = result.get("final_report")
+        export_paths: dict[str, str] = {}
+        if final_report:
+            generated = await asyncio.to_thread(
+                self.report_service.save_all_reports,
+                review_id,
+                final_report,
+            )
+            export_paths = {key: str(path) for key, path in generated.items()}
+            await asyncio.to_thread(
+                self.history_service.append,
+                build_history_item(
+                    review_id=review_id,
+                    file_name=original_file_name,
+                    final_report=final_report,
+                    report_path=export_paths.get("json"),
+                    exports=export_paths,
+                ),
+            )
+
+        return ReviewResponse(
+            review_id=review_id,
+            file_name=original_file_name,
+            status="已完成",
+            extracted_fields=result.get("extracted_fields", {}),
+            risk_findings=result.get("compliance_findings", []),
+            revision_suggestions=result.get("revision_suggestions", []),
+            final_report=final_report,
+            report_path=export_paths.get("json"),
+            export_paths=export_paths,
+            agent_trace=result.get("agent_trace", []),
+            errors=result.get("errors", []),
+        )
