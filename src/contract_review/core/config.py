@@ -27,7 +27,15 @@ class Settings(BaseSettings):
 
     upload_dir: Path = Path("data/uploads")
     report_dir: Path = Path("data/reports")
+    security_data_dir: Path = Path("data/security")
     max_upload_size_mb: int = 50
+
+    jwt_secret_key: SecretStr = SecretStr("change-me-in-production")
+    jwt_access_token_minutes: int = 30
+    jwt_refresh_token_days: int = 7
+    bootstrap_admin_email: str = "admin@example.com"
+    bootstrap_admin_password: SecretStr = SecretStr("Admin12345!")
+    bootstrap_admin_name: str = "System Admin"
 
     llm_provider: Literal["openai", "openai_compatible", "deepseek"] = "openai_compatible"
     llm_model_name: str = "gpt-4.1-mini"
