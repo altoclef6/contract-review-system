@@ -8,6 +8,7 @@ from contract_review.api.dependencies.auth import (
     require_permission,
 )
 from contract_review.core.config import Settings, get_settings
+from contract_review.schemas.api_response import ApiResponse, api_success
 from contract_review.schemas.auth import Permission, UserPublic
 from contract_review.schemas.contract_management import (
     ContractCategory,
@@ -31,19 +32,19 @@ def get_contract_service(settings: Settings = Depends(get_settings)) -> Contract
     return ContractService(settings.contract_data_dir)
 
 
-@router.post("", response_model=ContractRecord, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ApiResponse[ContractRecord], status_code=status.HTTP_201_CREATED)
 async def create_contract(
     payload: ContractCreate,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
     contracts: ContractService = Depends(get_contract_service),
     audit: AuditService = Depends(get_audit_service),
-) -> ContractRecord:
+) -> ApiResponse[ContractRecord]:
     record = contracts.create_contract(payload=payload, actor_id=user.id)
     audit.log_operation(actor_id=user.id, action="contracts.create", target=record.id)
-    return record
+    return api_success(record, "合同已创建")
 
 
-@router.get("", response_model=ContractListResponse)
+@router.get("", response_model=ApiResponse[ContractListResponse])
 async def list_contracts(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
@@ -56,8 +57,8 @@ async def list_contracts(
     include_deleted: bool = False,
     _: UserPublic = Depends(require_permission(Permission.contracts_read)),
     contracts: ContractService = Depends(get_contract_service),
-) -> ContractListResponse:
-    return contracts.list_contracts(
+) -> ApiResponse[ContractListResponse]:
+    data = contracts.list_contracts(
         page=page,
         page_size=page_size,
         search=search,
@@ -68,120 +69,125 @@ async def list_contracts(
         sort_order=sort_order,
         include_deleted=include_deleted,
     )
+    return api_success(data)
 
 
-@router.get("/{contract_id}", response_model=ContractRecord)
+@router.get("/{contract_id}", response_model=ApiResponse[ContractRecord])
 async def get_contract(
     contract_id: str,
     _: UserPublic = Depends(require_permission(Permission.contracts_read)),
     contracts: ContractService = Depends(get_contract_service),
-) -> ContractRecord:
+) -> ApiResponse[ContractRecord]:
     try:
-        return contracts.get_contract(contract_id)
+        return api_success(contracts.get_contract(contract_id))
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
-@router.patch("/{contract_id}", response_model=ContractRecord)
+@router.patch("/{contract_id}", response_model=ApiResponse[ContractRecord])
 async def update_contract(
     contract_id: str,
     payload: ContractUpdate,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
     contracts: ContractService = Depends(get_contract_service),
     audit: AuditService = Depends(get_audit_service),
-) -> ContractRecord:
+) -> ApiResponse[ContractRecord]:
     try:
         record = contracts.update_contract(contract_id=contract_id, payload=payload, actor_id=user.id)
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     audit.log_operation(actor_id=user.id, action="contracts.update", target=contract_id)
-    return record
+    return api_success(record, "合同已更新")
 
 
-@router.post("/{contract_id}/favorite", response_model=ContractRecord)
+@router.post("/{contract_id}/favorite", response_model=ApiResponse[ContractRecord])
 async def set_favorite(
     contract_id: str,
     favorite: bool = Query(default=True),
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
     contracts: ContractService = Depends(get_contract_service),
     audit: AuditService = Depends(get_audit_service),
-) -> ContractRecord:
+) -> ApiResponse[ContractRecord]:
     try:
         record = contracts.set_favorite(contract_id=contract_id, favorite=favorite, actor_id=user.id)
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     audit.log_operation(actor_id=user.id, action="contracts.favorite", target=contract_id)
-    return record
+    return api_success(record, "收藏状态已更新")
 
 
-@router.post("/{contract_id}/archive", response_model=ContractRecord)
+@router.post("/{contract_id}/archive", response_model=ApiResponse[ContractRecord])
 async def archive_contract(
     contract_id: str,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
     contracts: ContractService = Depends(get_contract_service),
     audit: AuditService = Depends(get_audit_service),
-) -> ContractRecord:
+) -> ApiResponse[ContractRecord]:
     try:
         record = contracts.archive(contract_id=contract_id, actor_id=user.id)
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     audit.log_operation(actor_id=user.id, action="contracts.archive", target=contract_id)
-    return record
+    return api_success(record, "合同已归档")
 
 
-@router.delete("/{contract_id}", response_model=ContractRecord)
+@router.delete("/{contract_id}", response_model=ApiResponse[ContractRecord])
 async def delete_contract(
     contract_id: str,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
     contracts: ContractService = Depends(get_contract_service),
     audit: AuditService = Depends(get_audit_service),
-) -> ContractRecord:
+) -> ApiResponse[ContractRecord]:
     try:
         record = contracts.delete(contract_id=contract_id, actor_id=user.id)
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     audit.log_operation(actor_id=user.id, action="contracts.delete", target=contract_id)
-    return record
+    return api_success(record, "合同已删除")
 
 
-@router.post("/{contract_id}/restore", response_model=ContractRecord)
+@router.post("/{contract_id}/restore", response_model=ApiResponse[ContractRecord])
 async def restore_contract(
     contract_id: str,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
     contracts: ContractService = Depends(get_contract_service),
     audit: AuditService = Depends(get_audit_service),
-) -> ContractRecord:
+) -> ApiResponse[ContractRecord]:
     try:
         record = contracts.restore(contract_id=contract_id, actor_id=user.id)
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     audit.log_operation(actor_id=user.id, action="contracts.restore", target=contract_id)
-    return record
+    return api_success(record, "合同已恢复")
 
 
-@router.post("/{contract_id}/versions", response_model=ContractVersion, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{contract_id}/versions",
+    response_model=ApiResponse[ContractVersion],
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_contract_version(
     contract_id: str,
     payload: ContractVersionCreate,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
     contracts: ContractService = Depends(get_contract_service),
     audit: AuditService = Depends(get_audit_service),
-) -> ContractVersion:
+) -> ApiResponse[ContractVersion]:
     try:
         version = contracts.add_version(contract_id=contract_id, payload=payload, actor_id=user.id)
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     audit.log_operation(actor_id=user.id, action="contracts.version.create", target=contract_id)
-    return version
+    return api_success(version, "合同版本已创建")
 
 
-@router.get("/{contract_id}/versions", response_model=list[ContractVersion])
+@router.get("/{contract_id}/versions", response_model=ApiResponse[list[ContractVersion]])
 async def list_contract_versions(
     contract_id: str,
     _: UserPublic = Depends(get_current_user),
     contracts: ContractService = Depends(get_contract_service),
-) -> list[ContractVersion]:
+) -> ApiResponse[list[ContractVersion]]:
     try:
-        return contracts.list_versions(contract_id)
+        return api_success(contracts.list_versions(contract_id))
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

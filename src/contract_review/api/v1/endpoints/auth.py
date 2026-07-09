@@ -11,6 +11,7 @@ from contract_review.api.dependencies.auth import (
 )
 from contract_review.core.config import Settings, get_settings
 from contract_review.core.security import TokenError, decode_token
+from contract_review.schemas.api_response import ApiResponse, MessageData, api_success
 from contract_review.schemas.auth import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
@@ -26,12 +27,12 @@ from contract_review.services.user_service import UserService, UserServiceError
 router = APIRouter()
 
 
-@router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=ApiResponse[UserPublic], status_code=status.HTTP_201_CREATED)
 async def register_user(
     payload: RegisterRequest,
     users: UserService = Depends(get_user_service),
     audit: AuditService = Depends(get_audit_service),
-) -> UserPublic:
+) -> ApiResponse[UserPublic]:
     try:
         user = users.create_user(
             email=str(payload.email),
@@ -41,17 +42,17 @@ async def register_user(
     except UserServiceError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     audit.log_operation(actor_id=user.id, action="auth.register", target=user.id)
-    return user
+    return api_success(user, "注册成功")
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=ApiResponse[TokenResponse])
 async def login(
     payload: LoginRequest,
     request: Request,
     settings: Settings = Depends(get_settings),
     users: UserService = Depends(get_user_service),
     audit: AuditService = Depends(get_audit_service),
-) -> TokenResponse:
+) -> ApiResponse[TokenResponse]:
     user = users.authenticate(email=str(payload.email), password=payload.password)
     audit.log_login(
         user_id=user.id if user else None,
@@ -63,20 +64,23 @@ async def login(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="邮箱或密码错误")
     access_token, refresh_token, expires_in = issue_token_pair(user, settings)
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=expires_in,
-        user=user,
+    return api_success(
+        TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_in=expires_in,
+            user=user,
+        ),
+        "登录成功",
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=ApiResponse[TokenResponse])
 async def refresh_token(
     payload: RefreshTokenRequest,
     settings: Settings = Depends(get_settings),
     users: UserService = Depends(get_user_service),
-) -> TokenResponse:
+) -> ApiResponse[TokenResponse]:
     try:
         token_payload = decode_token(
             payload.refresh_token,
@@ -89,26 +93,29 @@ async def refresh_token(
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号不可用")
     access_token, refresh_token_value, expires_in = issue_token_pair(user, settings)
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token_value,
-        expires_in=expires_in,
-        user=user,
+    return api_success(
+        TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token_value,
+            expires_in=expires_in,
+            user=user,
+        ),
+        "Token 已刷新",
     )
 
 
-@router.get("/me", response_model=UserPublic)
-async def current_user(user: UserPublic = Depends(get_current_user)) -> UserPublic:
-    return user
+@router.get("/me", response_model=ApiResponse[UserPublic])
+async def current_user(user: UserPublic = Depends(get_current_user)) -> ApiResponse[UserPublic]:
+    return api_success(user)
 
 
-@router.post("/change-password")
+@router.post("/change-password", response_model=ApiResponse[MessageData])
 async def change_password(
     payload: ChangePasswordRequest,
     user: UserPublic = Depends(get_current_user),
     users: UserService = Depends(get_user_service),
     audit: AuditService = Depends(get_audit_service),
-) -> dict[str, str]:
+) -> ApiResponse[MessageData]:
     try:
         users.change_password(
             user_id=user.id,
@@ -118,17 +125,17 @@ async def change_password(
     except UserServiceError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     audit.log_operation(actor_id=user.id, action="auth.change_password", target=user.id)
-    return {"message": "密码已修改"}
+    return api_success(MessageData(message="密码已修改"), "密码已修改")
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", response_model=ApiResponse[MessageData])
 async def forgot_password(
     payload: ForgotPasswordRequest,
     audit: AuditService = Depends(get_audit_service),
-) -> dict[str, str]:
+) -> ApiResponse[MessageData]:
     audit.log_operation(
         actor_id=None,
         action="auth.forgot_password.requested",
         target=str(payload.email),
     )
-    return {"message": "如果邮箱存在，系统将发送重置密码通知"}
+    return api_success(MessageData(message="如果邮箱存在，系统将发送重置密码通知"))
