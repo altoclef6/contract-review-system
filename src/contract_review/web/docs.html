@@ -2,16 +2,308 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>__APP_TITLE__ - 接口文档</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
   <style>
-    body { margin: 0; background: #f6f7f9; }
-    .swagger-ui .topbar { display: none; }
-    .swagger-ui .info .title small { display: none; }
+    :root {
+      --bg: #f7f7f4;
+      --panel: #ffffff;
+      --text: #101410;
+      --muted: #6d756d;
+      --line: #e4e6df;
+      --accent: #0f7a5f;
+      --accent-soft: #e6f4ef;
+      --danger: #b84f76;
+      --shadow: 0 24px 80px rgba(18, 28, 20, .10);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 12%, rgba(190, 224, 209, .7), transparent 28%),
+        radial-gradient(circle at 88% 6%, rgba(234, 176, 197, .35), transparent 30%),
+        var(--bg);
+      font-family: Inter, "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    }
+
+    .docs-shell {
+      width: min(1180px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 42px 0 72px;
+    }
+
+    .docs-hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .docs-eyebrow {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .docs-hero h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 52px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .docs-hero p {
+      max-width: 620px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.8;
+    }
+
+    .docs-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .docs-actions a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      background: rgba(255, 255, 255, .72);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .docs-actions a.primary {
+      border-color: var(--accent);
+      color: #fff;
+      background: var(--accent);
+    }
+
+    .docs-card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .82);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    #swagger-ui {
+      padding: 8px 0 28px;
+    }
+
+    .swagger-ui {
+      color: var(--text);
+      font-family: Inter, "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    }
+
+    .swagger-ui .topbar,
+    .swagger-ui .info .title small,
+    .swagger-ui .info .base-url,
+    .swagger-ui .models { display: none !important; }
+
+    .swagger-ui .wrapper {
+      max-width: none;
+      padding: 0 28px;
+    }
+
+    .swagger-ui .scheme-container {
+      margin: 0;
+      padding: 18px 28px 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .swagger-ui .scheme-container .schemes {
+      justify-content: flex-end;
+    }
+
+    .swagger-ui .info {
+      margin: 24px 0 18px;
+    }
+
+    .swagger-ui .info .title {
+      color: var(--text);
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+
+    .swagger-ui .info p,
+    .swagger-ui .opblock-description-wrapper p,
+    .swagger-ui .opblock-external-docs-wrapper p,
+    .swagger-ui .opblock-title_normal p {
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .swagger-ui .opblock-tag {
+      margin: 14px 0 8px;
+      border-bottom: 1px solid var(--line);
+      color: var(--text);
+      font-size: 19px;
+    }
+
+    .swagger-ui .opblock {
+      overflow: hidden;
+      margin: 0 0 12px;
+      border-radius: 10px;
+      border-color: var(--line);
+      box-shadow: none;
+      background: #fff;
+    }
+
+    .swagger-ui .opblock .opblock-summary {
+      min-height: 54px;
+      padding: 8px 14px;
+    }
+
+    .swagger-ui .opblock .opblock-summary-method {
+      min-width: 74px;
+      border-radius: 7px;
+      text-shadow: none;
+      box-shadow: none;
+      font-size: 13px;
+    }
+
+    .swagger-ui .btn,
+    .swagger-ui .btn.authorize,
+    .swagger-ui .opblock-control-arrow {
+      border-radius: 8px;
+      box-shadow: none;
+    }
+
+    .swagger-ui .btn.authorize {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .swagger-ui .btn.execute {
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+
+    .swagger-ui input[type=text],
+    .swagger-ui input[type=password],
+    .swagger-ui textarea,
+    .swagger-ui select {
+      border-radius: 8px;
+      border-color: #cfd7ce;
+      font-family: inherit;
+    }
+
+    .swagger-ui .dialog-ux .modal-ux {
+      overflow: hidden;
+      width: min(620px, calc(100vw - 40px));
+      border-radius: 14px;
+      box-shadow: 0 32px 120px rgba(8, 16, 12, .28);
+    }
+
+    .swagger-ui .dialog-ux .modal-ux-header {
+      min-height: 64px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .swagger-ui .dialog-ux .modal-ux-header h3 {
+      color: var(--text);
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .swagger-ui .auth-container {
+      padding: 26px 36px 34px;
+    }
+
+    .swagger-ui .auth-container h4 {
+      color: var(--text);
+      font-size: 17px;
+    }
+
+    .swagger-ui .auth-container label,
+    .swagger-ui .auth-container .wrapper p {
+      color: var(--muted);
+    }
+
+    .swagger-ui .auth-container input {
+      width: min(420px, 100%);
+      min-height: 44px;
+      border-radius: 8px;
+    }
+
+    .swagger-ui .auth-btn-wrapper {
+      justify-content: flex-start;
+      gap: 10px;
+      padding-top: 10px;
+    }
+
+    .swagger-ui .auth-btn-wrapper .btn.modal-btn {
+      min-width: 92px;
+      min-height: 38px;
+      border-radius: 8px;
+      font-weight: 800;
+    }
+
+    .swagger-ui .auth-btn-wrapper .btn-done {
+      border-color: var(--accent);
+      color: #fff;
+      background: var(--accent);
+    }
+
+    @media (max-width: 760px) {
+      .docs-shell {
+        width: min(100vw - 24px, 1180px);
+        padding-top: 24px;
+      }
+
+      .docs-hero {
+        display: block;
+      }
+
+      .docs-actions {
+        justify-content: flex-start;
+        margin-top: 18px;
+      }
+
+      .swagger-ui .wrapper {
+        padding: 0 14px;
+      }
+    }
   </style>
 </head>
 <body>
-  <div id="swagger-ui"></div>
+  <main class="docs-shell">
+    <section class="docs-hero">
+      <div>
+        <p class="docs-eyebrow">Enterprise AI Contract Review Platform</p>
+        <h1>接口文档</h1>
+        <p>用于调试认证、合同管理、模型配置与合同审查接口。需要登录的接口，请先调用登录接口获取 access_token，再点击右侧授权。</p>
+      </div>
+      <nav class="docs-actions" aria-label="文档快捷入口">
+        <a class="primary" href="/">返回工作台</a>
+        <a href="/openapi.json" target="_blank">接口 JSON</a>
+      </nav>
+    </section>
+    <section class="docs-card">
+      <div id="swagger-ui"></div>
+    </section>
+  </main>
   <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
   <script src="/static/js/swagger-zh.js"></script>
 </body>

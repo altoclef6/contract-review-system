@@ -27,7 +27,12 @@ from contract_review.services.user_service import UserService, UserServiceError
 router = APIRouter()
 
 
-@router.post("/register", response_model=ApiResponse[UserPublic], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=ApiResponse[UserPublic],
+    status_code=status.HTTP_201_CREATED,
+    summary="用户注册",
+)
 async def register_user(
     payload: RegisterRequest,
     users: UserService = Depends(get_user_service),
@@ -45,7 +50,7 @@ async def register_user(
     return api_success(user, "注册成功")
 
 
-@router.post("/login", response_model=ApiResponse[TokenResponse])
+@router.post("/login", response_model=ApiResponse[TokenResponse], summary="用户登录")
 async def login(
     payload: LoginRequest,
     request: Request,
@@ -75,7 +80,7 @@ async def login(
     )
 
 
-@router.post("/refresh", response_model=ApiResponse[TokenResponse])
+@router.post("/refresh", response_model=ApiResponse[TokenResponse], summary="刷新令牌")
 async def refresh_token(
     payload: RefreshTokenRequest,
     settings: Settings = Depends(get_settings),
@@ -104,12 +109,12 @@ async def refresh_token(
     )
 
 
-@router.get("/me", response_model=ApiResponse[UserPublic])
+@router.get("/me", response_model=ApiResponse[UserPublic], summary="当前用户")
 async def current_user(user: UserPublic = Depends(get_current_user)) -> ApiResponse[UserPublic]:
     return api_success(user)
 
 
-@router.post("/change-password", response_model=ApiResponse[MessageData])
+@router.post("/change-password", response_model=ApiResponse[MessageData], summary="修改密码")
 async def change_password(
     payload: ChangePasswordRequest,
     user: UserPublic = Depends(get_current_user),
@@ -128,7 +133,7 @@ async def change_password(
     return api_success(MessageData(message="密码已修改"), "密码已修改")
 
 
-@router.post("/forgot-password", response_model=ApiResponse[MessageData])
+@router.post("/forgot-password", response_model=ApiResponse[MessageData], summary="忘记密码")
 async def forgot_password(
     payload: ForgotPasswordRequest,
     audit: AuditService = Depends(get_audit_service),

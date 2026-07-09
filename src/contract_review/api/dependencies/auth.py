@@ -12,7 +12,11 @@ from contract_review.schemas.auth import ROLE_PERMISSIONS, Permission, UserPubli
 from contract_review.services.audit_service import AuditService
 from contract_review.services.user_service import UserService
 
-bearer_scheme = HTTPBearer(auto_error=False)
+bearer_scheme = HTTPBearer(
+    auto_error=False,
+    scheme_name="登录令牌",
+    description="请输入登录接口返回的 access_token。系统会自动按访问令牌方式发送。",
+)
 
 
 def get_user_service(settings: Settings = Depends(get_settings)) -> UserService:

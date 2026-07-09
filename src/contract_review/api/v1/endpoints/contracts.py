@@ -32,7 +32,12 @@ def get_contract_service(settings: Settings = Depends(get_settings)) -> Contract
     return ContractService(settings.contract_data_dir)
 
 
-@router.post("", response_model=ApiResponse[ContractRecord], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ApiResponse[ContractRecord],
+    status_code=status.HTTP_201_CREATED,
+    summary="创建合同",
+)
 async def create_contract(
     payload: ContractCreate,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
@@ -44,7 +49,7 @@ async def create_contract(
     return api_success(record, "合同已创建")
 
 
-@router.get("", response_model=ApiResponse[ContractListResponse])
+@router.get("", response_model=ApiResponse[ContractListResponse], summary="合同列表")
 async def list_contracts(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
@@ -72,7 +77,7 @@ async def list_contracts(
     return api_success(data)
 
 
-@router.get("/{contract_id}", response_model=ApiResponse[ContractRecord])
+@router.get("/{contract_id}", response_model=ApiResponse[ContractRecord], summary="合同详情")
 async def get_contract(
     contract_id: str,
     _: UserPublic = Depends(require_permission(Permission.contracts_read)),
@@ -84,7 +89,7 @@ async def get_contract(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
-@router.patch("/{contract_id}", response_model=ApiResponse[ContractRecord])
+@router.patch("/{contract_id}", response_model=ApiResponse[ContractRecord], summary="更新合同")
 async def update_contract(
     contract_id: str,
     payload: ContractUpdate,
@@ -100,7 +105,7 @@ async def update_contract(
     return api_success(record, "合同已更新")
 
 
-@router.post("/{contract_id}/favorite", response_model=ApiResponse[ContractRecord])
+@router.post("/{contract_id}/favorite", response_model=ApiResponse[ContractRecord], summary="收藏合同")
 async def set_favorite(
     contract_id: str,
     favorite: bool = Query(default=True),
@@ -116,7 +121,7 @@ async def set_favorite(
     return api_success(record, "收藏状态已更新")
 
 
-@router.post("/{contract_id}/archive", response_model=ApiResponse[ContractRecord])
+@router.post("/{contract_id}/archive", response_model=ApiResponse[ContractRecord], summary="归档合同")
 async def archive_contract(
     contract_id: str,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
@@ -131,7 +136,7 @@ async def archive_contract(
     return api_success(record, "合同已归档")
 
 
-@router.delete("/{contract_id}", response_model=ApiResponse[ContractRecord])
+@router.delete("/{contract_id}", response_model=ApiResponse[ContractRecord], summary="删除合同")
 async def delete_contract(
     contract_id: str,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
@@ -146,7 +151,7 @@ async def delete_contract(
     return api_success(record, "合同已删除")
 
 
-@router.post("/{contract_id}/restore", response_model=ApiResponse[ContractRecord])
+@router.post("/{contract_id}/restore", response_model=ApiResponse[ContractRecord], summary="恢复合同")
 async def restore_contract(
     contract_id: str,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
@@ -165,6 +170,7 @@ async def restore_contract(
     "/{contract_id}/versions",
     response_model=ApiResponse[ContractVersion],
     status_code=status.HTTP_201_CREATED,
+    summary="创建合同版本",
 )
 async def create_contract_version(
     contract_id: str,
@@ -181,7 +187,11 @@ async def create_contract_version(
     return api_success(version, "合同版本已创建")
 
 
-@router.get("/{contract_id}/versions", response_model=ApiResponse[list[ContractVersion]])
+@router.get(
+    "/{contract_id}/versions",
+    response_model=ApiResponse[list[ContractVersion]],
+    summary="合同版本列表",
+)
 async def list_contract_versions(
     contract_id: str,
     _: UserPublic = Depends(get_current_user),

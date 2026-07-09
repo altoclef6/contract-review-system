@@ -18,7 +18,7 @@ from contract_review.services.user_service import UserService, UserServiceError
 router = APIRouter()
 
 
-@router.get("/users", response_model=ApiResponse[list[UserPublic]])
+@router.get("/users", response_model=ApiResponse[list[UserPublic]], summary="用户列表")
 async def list_users(
     _: UserPublic = Depends(require_role(UserRole.admin)),
     users: UserService = Depends(get_user_service),
@@ -26,7 +26,11 @@ async def list_users(
     return api_success(users.list_users())
 
 
-@router.patch("/users/{user_id}/disabled", response_model=ApiResponse[UserPublic])
+@router.patch(
+    "/users/{user_id}/disabled",
+    response_model=ApiResponse[UserPublic],
+    summary="启用或禁用账号",
+)
 async def set_user_disabled(
     user_id: str,
     payload: DisableUserRequest,
@@ -46,7 +50,11 @@ async def set_user_disabled(
     return api_success(user, "账号状态已更新")
 
 
-@router.post("/users/{user_id}/reset-password", response_model=ApiResponse[ResetPasswordResponse])
+@router.post(
+    "/users/{user_id}/reset-password",
+    response_model=ApiResponse[ResetPasswordResponse],
+    summary="重置用户密码",
+)
 async def reset_user_password(
     user_id: str,
     actor: UserPublic = Depends(require_role(UserRole.admin)),
@@ -64,7 +72,7 @@ async def reset_user_password(
     )
 
 
-@router.get("/roles", response_model=ApiResponse[list[RoleInfo]])
+@router.get("/roles", response_model=ApiResponse[list[RoleInfo]], summary="角色权限列表")
 async def list_roles(
     _: UserPublic = Depends(require_role(UserRole.admin)),
 ) -> ApiResponse[list[RoleInfo]]:
