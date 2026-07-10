@@ -89,3 +89,50 @@ async def call_llm_json(
     if not isinstance(content, str):
         return None
     return _extract_json(content)
+
+
+async def call_llm_text(
+    system_prompt: str,
+    messages: list[tuple[str, str]],
+    *,
+    max_chars: int = 24000,
+    llm_config: dict[str, Any] | None = None,
+) -> str | None:
+    settings = get_settings()
+    if not settings.enable_llm:
+        return None
+    effective_llm_config = llm_config
+    if not (effective_llm_config or {}).get("api_key"):
+        active_config = ModelConfigService(
+            settings.model_config_data_dir,
+            settings.jwt_secret_key.get_secret_value(),
+        ).resolve_active_runtime_config()
+        if active_config is not None:
+            effective_llm_config = active_config.model_dump()
+    if not (effective_llm_config or {}).get("api_key") and settings.resolve_llm_api_key() is None:
+        return None
+    try:
+        model = create_chat_model(settings, effective_llm_config)
+    except LLMConfigurationError:
+        return None
+    request_messages = [SystemMessage(content=system_prompt)]
+    used = 0
+    for role, content in messages:
+        bounded = content[: max(0, max_chars - used)]
+        used += len(bounded)
+        request_messages.append(
+            HumanMessage(content=bounded)
+            if role == "user"
+            else SystemMessage(content=f"此前助手回答：{bounded}")
+        )
+        if used >= max_chars:
+            break
+    try:
+        response = await model.ainvoke(request_messages)
+    except Exception as exc:  # pragma: no cover - external API behavior
+        logger.warning("LLM chat call failed: %s", exc)
+        return None
+    content = getattr(response, "content", "")
+    if isinstance(content, list):
+        content = "\n".join(str(part) for part in content)
+    return content.strip() if isinstance(content, str) and content.strip() else None

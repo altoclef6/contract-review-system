@@ -16,6 +16,7 @@ data/history.json
 data/contracts/
 data/model-configs/
 data/prompt-templates/
+data/chats/
 data/security/
 runtime-logs/
 demo_assets/
