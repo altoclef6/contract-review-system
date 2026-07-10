@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     celery_result_backend: SecretStr = SecretStr("redis://localhost:6379/2")
 
     tesseract_cmd: str | None = None
+    libreoffice_cmd: str | None = None
     tessdata_dir: Path | None = None
     ocr_languages: str = "chi_sim+eng"
 

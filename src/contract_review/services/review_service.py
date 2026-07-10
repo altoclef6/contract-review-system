@@ -75,6 +75,7 @@ class ReviewService:
                     model_provider=active_model.provider.value if active_model else None,
                     model_name=active_model.model_name if active_model else None,
                     prompt_snapshot=prompt_templates,
+                    source_file_path=str(file_path),
                 ),
             )
 

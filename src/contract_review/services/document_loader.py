@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 from PIL import Image
@@ -9,7 +12,17 @@ from contract_review.core.exceptions import UnsupportedDocumentTypeError
 
 
 class DocumentLoader:
-    supported_extensions = {".pdf", ".docx", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
+    supported_extensions = {
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".tif",
+        ".tiff",
+        ".bmp",
+    }
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -23,13 +36,23 @@ class DocumentLoader:
             return self._load_pdf(file_path)
         if suffix == ".docx":
             return self._load_docx(file_path)
+        if suffix == ".doc":
+            return self._load_legacy_doc(file_path)
         return self._load_image_with_ocr(file_path)
 
     def _load_pdf(self, file_path: Path) -> str:
         import fitz
 
         with fitz.open(file_path) as document:
-            return "\n".join(page.get_text("text") for page in document)
+            pages = [page.get_text("text").strip() for page in document]
+            if sum(len(page) for page in pages) >= max(80, len(document) * 20):
+                return "\n".join(pages)
+            ocr_pages = []
+            for page in document:
+                pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+                image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+                ocr_pages.append(self._ocr_image(image))
+            return "\n".join(ocr_pages)
 
     def _load_docx(self, file_path: Path) -> str:
         from docx import Document
@@ -45,16 +68,42 @@ class DocumentLoader:
         return "\n".join([*paragraphs, *table_text])
 
     def _load_image_with_ocr(self, file_path: Path) -> str:
+        with Image.open(file_path) as image:
+            return self._ocr_image(image)
+
+    def _ocr_image(self, image: Image.Image) -> str:
         import pytesseract
 
         if self.settings.tesseract_cmd:
             pytesseract.pytesseract.tesseract_cmd = self.settings.tesseract_cmd
-        config = ""
-        if self.settings.tessdata_dir:
-            config = f'--tessdata-dir "{self.settings.tessdata_dir}"'
-        with Image.open(file_path) as image:
-            return pytesseract.image_to_string(
-                image,
-                lang=self.settings.ocr_languages,
-                config=config,
+        config = (
+            f'--tessdata-dir "{self.settings.tessdata_dir}"' if self.settings.tessdata_dir else ""
+        )
+        return pytesseract.image_to_string(image, lang=self.settings.ocr_languages, config=config)
+
+    def _load_legacy_doc(self, file_path: Path) -> str:
+        command = self.settings.libreoffice_cmd or shutil.which("soffice")
+        if not command:
+            raise UnsupportedDocumentTypeError(
+                "读取旧版 .doc 需要安装 LibreOffice，并配置 LIBREOFFICE_CMD"
             )
+        with tempfile.TemporaryDirectory() as output_dir:
+            completed = subprocess.run(
+                [
+                    command,
+                    "--headless",
+                    "--convert-to",
+                    "docx",
+                    "--outdir",
+                    output_dir,
+                    str(file_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+            converted = Path(output_dir) / f"{file_path.stem}.docx"
+            if completed.returncode != 0 or not converted.exists():
+                raise UnsupportedDocumentTypeError("旧版 .doc 转换失败，请检查 LibreOffice 配置")
+            return self._load_docx(converted)

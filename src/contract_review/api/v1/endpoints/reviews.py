@@ -87,7 +87,7 @@ async def get_review(request: Request, review_id: str) -> dict:
 async def download_review(
     request: Request,
     review_id: str,
-    file_type: str = Query(default="pdf", pattern="^(json|docx|pdf)$"),
+    file_type: str = Query(default="pdf", pattern="^(json|docx|pdf|markdown|xlsx)$"),
 ) -> FileResponse:
     record = HistoryService(request.app.state.settings.report_dir.parent).get(review_id)
     if record is None:
@@ -99,6 +99,8 @@ async def download_review(
         "json": "application/json",
         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "pdf": "application/pdf",
+        "markdown": "text/markdown; charset=utf-8",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }
     return FileResponse(
         file_path,

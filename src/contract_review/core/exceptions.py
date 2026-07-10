@@ -10,5 +10,9 @@ class UploadTooLargeError(ContractReviewError):
     """Raised when an uploaded file exceeds the configured size limit."""
 
 
+class UnsafeUploadError(ContractReviewError):
+    """Raised when an upload extension and file signature are unsafe or inconsistent."""
+
+
 class LLMConfigurationError(ContractReviewError):
     """Raised when external LLM API configuration is incomplete."""

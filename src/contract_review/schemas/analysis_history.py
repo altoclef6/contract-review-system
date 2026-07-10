@@ -16,6 +16,7 @@ class AnalysisRecord(BaseModel):
     model_name: str | None = None
     prompt_snapshot: dict[str, str] = Field(default_factory=dict)
     token_usage: int | None = None
+    source_file_path: str | None = None
     overall_risk_level: str | None = None
     risk_score: int | float | None = None
     safe_score: int | float | None = None

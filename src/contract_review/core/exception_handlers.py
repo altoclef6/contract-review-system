@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from contract_review.core.exceptions import (
     ContractReviewError,
     UnsupportedDocumentTypeError,
+    UnsafeUploadError,
     UploadTooLargeError,
 )
 
@@ -21,6 +22,7 @@ ENTERPRISE_API_PREFIXES = (
     "/api/v1/analysis-history",
     "/api/v1/workflows",
     "/api/v1/notifications",
+    "/api/v1/reader",
 )
 
 
@@ -49,6 +51,8 @@ async def contract_review_error_handler(
         status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
     elif isinstance(exc, UnsupportedDocumentTypeError):
         status_code = status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+    elif isinstance(exc, UnsafeUploadError):
+        status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
 
     return JSONResponse(
         status_code=status_code,
