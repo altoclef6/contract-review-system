@@ -51,6 +51,16 @@ class Settings(BaseSettings):
     llm_timeout_seconds: int = 60
     enable_llm: bool = True
 
+    database_url: SecretStr = SecretStr(
+        "postgresql+psycopg://contract_review:contract_review@localhost:5432/contract_review"
+    )
+    database_enabled: bool = False
+    redis_url: SecretStr = SecretStr("redis://localhost:6379/0")
+    redis_enabled: bool = False
+    cache_ttl_seconds: int = 300
+    celery_broker_url: SecretStr = SecretStr("redis://localhost:6379/1")
+    celery_result_backend: SecretStr = SecretStr("redis://localhost:6379/2")
+
     tesseract_cmd: str | None = None
     tessdata_dir: Path | None = None
     ocr_languages: str = "chi_sim+eng"
