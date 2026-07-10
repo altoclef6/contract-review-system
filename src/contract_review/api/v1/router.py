@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from contract_review.api.v1.endpoints import (
     admin,
+    analysis_history,
     auth,
     chats,
     contracts,
@@ -21,6 +22,11 @@ api_router.include_router(
     prompt_templates.router, prefix="/prompt-templates", tags=["Prompt 模板中心"]
 )
 api_router.include_router(chats.router, prefix="/chats", tags=["合同 AI 助手"])
+api_router.include_router(
+    analysis_history.router,
+    prefix="/analysis-history",
+    tags=["分析历史与统计"],
+)
 api_router.include_router(health.router, tags=["系统健康"])
 api_router.include_router(llm.router, prefix="/llm", tags=["模型连接验证"])
 api_router.include_router(reviews.router, prefix="/reviews", tags=["合同审查"])

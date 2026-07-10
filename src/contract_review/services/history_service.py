@@ -1,23 +1,27 @@
 from __future__ import annotations
 
 import json
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 class HistoryService:
+    _lock = threading.Lock()
+
     def __init__(self, data_dir: Path) -> None:
         self.history_path = data_dir / "history.json"
 
     def append(self, item: dict[str, Any]) -> None:
-        records = self.list_records()
-        records.insert(0, item)
-        self.history_path.parent.mkdir(parents=True, exist_ok=True)
-        self.history_path.write_text(
-            json.dumps(records[:200], ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        with self._lock:
+            records = self.list_records()
+            records.insert(0, item)
+            self.history_path.parent.mkdir(parents=True, exist_ok=True)
+            self.history_path.write_text(
+                json.dumps(records[:2000], ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
 
     def list_records(self) -> list[dict[str, Any]]:
         if not self.history_path.exists():
@@ -34,6 +38,59 @@ class HistoryService:
                 return item
         return None
 
+    def search(
+        self,
+        *,
+        keyword: str | None = None,
+        risk_level: str | None = None,
+        contract_type: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[dict[str, Any]], int]:
+        records = self.list_records()
+        if keyword:
+            normalized = keyword.casefold()
+            records = [
+                item
+                for item in records
+                if normalized in str(item.get("file_name", "")).casefold()
+                or normalized in str(item.get("review_id", "")).casefold()
+            ]
+        if risk_level:
+            records = [item for item in records if item.get("overall_risk_level") == risk_level]
+        if contract_type:
+            records = [item for item in records if item.get("contract_type") == contract_type]
+        total = len(records)
+        start = (page - 1) * page_size
+        return records[start : start + page_size], total
+
+    def statistics(self) -> dict[str, Any]:
+        records = self.list_records()
+        risk_scores = [
+            float(item["risk_score"]) for item in records if item.get("risk_score") is not None
+        ]
+        durations = [
+            float(item["duration_ms"]) for item in records if item.get("duration_ms") is not None
+        ]
+
+        def count_by(key: str, fallback: str = "未知") -> dict[str, int]:
+            result: dict[str, int] = {}
+            for item in records:
+                value = str(item.get(key) or fallback)
+                result[value] = result.get(value, 0) + 1
+            return result
+
+        return {
+            "total_reviews": len(records),
+            "average_risk_score": round(sum(risk_scores) / len(risk_scores), 2)
+            if risk_scores
+            else 0,
+            "average_duration_ms": round(sum(durations) / len(durations), 2) if durations else 0,
+            "risk_levels": count_by("overall_risk_level"),
+            "contract_types": count_by("contract_type", "general"),
+            "models": count_by("model_name", "规则引擎"),
+        }
+
 
 def build_history_item(
     *,
@@ -42,6 +99,12 @@ def build_history_item(
     final_report: dict[str, Any] | None,
     report_path: str | None,
     exports: dict[str, str],
+    contract_type: str = "general",
+    duration_ms: int | None = None,
+    model_provider: str | None = None,
+    model_name: str | None = None,
+    prompt_snapshot: dict[str, str] | None = None,
+    token_usage: int | None = None,
 ) -> dict[str, Any]:
     final_report = final_report or {}
     risk_score = final_report.get("风险评分", {})
@@ -49,9 +112,16 @@ def build_history_item(
         "review_id": review_id,
         "file_name": file_name,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "contract_type": contract_type,
+        "duration_ms": duration_ms,
+        "model_provider": model_provider,
+        "model_name": model_name,
+        "prompt_snapshot": prompt_snapshot or {},
+        "token_usage": token_usage,
         "overall_risk_level": final_report.get("总体风险等级"),
         "risk_score": risk_score.get("风险分"),
         "safe_score": risk_score.get("安全分"),
+        "risk_counts": final_report.get("风险统计", {}),
         "ai_status": final_report.get("AI增强"),
         "report_path": report_path,
         "exports": exports,

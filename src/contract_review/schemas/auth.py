@@ -18,6 +18,7 @@ class Permission(StrEnum):
     contracts_read = "contracts:read"
     contracts_write = "contracts:write"
     reviews_run = "reviews:run"
+    reviews_history = "reviews:history"
     prompts_manage = "prompts:manage"
     models_manage = "models:manage"
 
@@ -28,6 +29,7 @@ ROLE_PERMISSIONS: dict[UserRole, set[Permission]] = {
         Permission.contracts_read,
         Permission.contracts_write,
         Permission.reviews_run,
+        Permission.reviews_history,
         Permission.prompts_manage,
     },
     UserRole.employee: {
