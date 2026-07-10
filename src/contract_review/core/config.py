@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     report_dir: Path = Path("data/reports")
     contract_data_dir: Path = Path("data/contracts")
     model_config_data_dir: Path = Path("data/model-configs")
+    prompt_template_data_dir: Path = Path("data/prompt-templates")
     security_data_dir: Path = Path("data/security")
     max_upload_size_mb: int = 50
 

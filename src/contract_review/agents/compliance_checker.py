@@ -111,7 +111,9 @@ async def compliance_checker_node(state: ContractReviewState) -> dict:
     findings = _rule_check(fields, text)
 
     llm_result = await call_llm_json(
-        "你是企业合同合规审查专家。请只输出 JSON，不要输出 Markdown。",
+        state.get("prompt_templates", {}).get(
+            "compliance", "你是企业合同合规审查专家。请只输出 JSON，不要输出 Markdown。"
+        ),
         f"""
 请基于合同文本和结构化要素，补充识别规则审查可能遗漏的合同风险。
 风险等级只能使用：低、中、高、严重。

@@ -8,6 +8,7 @@ from contract_review.core.config import Settings
 from contract_review.schemas.review import ReviewResponse
 from contract_review.services.document_loader import DocumentLoader
 from contract_review.services.history_service import HistoryService, build_history_item
+from contract_review.services.prompt_template_service import PromptTemplateService
 from contract_review.services.report_service import ReportService
 from contract_review.utils.id_generator import generate_review_id
 
@@ -26,6 +27,7 @@ class ReviewService:
         original_file_name: str,
         content_type: str | None,
         llm_config: dict[str, Any] | None = None,
+        contract_type: str = "general",
     ) -> ReviewResponse:
         review_id = generate_review_id()
         raw_text = await asyncio.to_thread(self.document_loader.load_text, file_path)
@@ -36,6 +38,10 @@ class ReviewService:
             "file_type": content_type,
             "raw_text": raw_text,
             "llm_config": llm_config or {},
+            "contract_type": contract_type,
+            "prompt_templates": PromptTemplateService(
+                self.settings.prompt_template_data_dir
+            ).resolve(contract_type),
             "errors": [],
         }
         result = await self.graph.ainvoke(initial_state)

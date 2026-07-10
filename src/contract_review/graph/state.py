@@ -12,6 +12,8 @@ class ContractReviewState(TypedDict, total=False):
     file_type: str | None
     raw_text: str
     llm_config: dict[str, Any]
+    contract_type: str
+    prompt_templates: dict[str, str]
     extracted_fields: dict[str, Any]
     compliance_findings: list[dict[str, Any]]
     risk_summary: dict[str, Any]

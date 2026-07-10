@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, File, Header, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from contract_review.schemas.review import ReviewResponse
@@ -28,6 +28,7 @@ router = APIRouter()
 )
 async def create_review(
     request: Request,
+    合同类型: str = Form(default="general", description="合同类型：general/purchase/sales/employment/lease/nda/service/other"),
     合同文件: UploadFile = File(
         ...,
         title="合同文件",
@@ -61,6 +62,7 @@ async def create_review(
         original_file_name=合同文件.filename or saved_path.name,
         content_type=合同文件.content_type,
         llm_config=llm_config,
+        contract_type=合同类型,
     )
 
 

@@ -133,7 +133,9 @@ async def extractor_node(state: ContractReviewState) -> dict:
     rule_result = _rule_extract(text)
 
     llm_result = await call_llm_json(
-        "你是企业合同结构化信息提取专家。请只输出 JSON，不要输出 Markdown。",
+        state.get("prompt_templates", {}).get(
+            "extraction", "你是企业合同结构化信息提取专家。请只输出 JSON，不要输出 Markdown。"
+        ),
         f"""
 请从以下合同文本中提取结构化要素。输出 JSON 格式：
 {{

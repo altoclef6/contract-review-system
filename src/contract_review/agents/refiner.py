@@ -48,7 +48,9 @@ async def refiner_node(state: ContractReviewState) -> dict:
     suggestions = _rule_suggestions(findings)
 
     llm_result = await call_llm_json(
-        "你是企业法务合同修改专家。请只输出 JSON，不要输出 Markdown。",
+        state.get("prompt_templates", {}).get(
+            "refinement", "你是企业法务合同修改专家。请只输出 JSON，不要输出 Markdown。"
+        ),
         f"""
 请针对以下风险点生成更贴近合同语境的修改建议和参考条款。
 输出 JSON：

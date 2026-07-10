@@ -85,6 +85,10 @@ class DisableUserRequest(BaseModel):
     disabled: bool
 
 
+class UpdateUserRoleRequest(BaseModel):
+    role: UserRole
+
+
 class ResetPasswordResponse(BaseModel):
     user_id: str
     temporary_password: str

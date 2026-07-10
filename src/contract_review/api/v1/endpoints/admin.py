@@ -9,6 +9,7 @@ from contract_review.schemas.auth import (
     DisableUserRequest,
     ResetPasswordResponse,
     RoleInfo,
+    UpdateUserRoleRequest,
     UserPublic,
     UserRole,
 )
@@ -24,6 +25,24 @@ async def list_users(
     users: UserService = Depends(get_user_service),
 ) -> ApiResponse[list[UserPublic]]:
     return api_success(users.list_users())
+
+
+@router.patch("/users/{user_id}/role", response_model=ApiResponse[UserPublic], summary="修改用户角色")
+async def set_user_role(
+    user_id: str,
+    payload: UpdateUserRoleRequest,
+    actor: UserPublic = Depends(require_role(UserRole.admin)),
+    users: UserService = Depends(get_user_service),
+    audit: AuditService = Depends(get_audit_service),
+) -> ApiResponse[UserPublic]:
+    if actor.id == user_id and payload.role is not UserRole.admin:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="不能移除自己的管理员角色")
+    try:
+        user = users.set_role(user_id=user_id, role=payload.role)
+    except UserServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    audit.log_operation(actor_id=actor.id, action="admin.user.role", target=user_id)
+    return api_success(user, "用户角色已更新")
 
 
 @router.patch(

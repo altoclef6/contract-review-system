@@ -93,6 +93,17 @@ class UserService:
                     return self._to_public(record)
         raise UserServiceError("用户不存在")
 
+    def set_role(self, *, user_id: str, role: UserRole) -> UserPublic:
+        with self._lock:
+            users = self._load()
+            for record in users:
+                if record["id"] == user_id:
+                    record["role"] = role.value
+                    record["updated_at"] = datetime.now(timezone.utc).isoformat()
+                    self._save(users)
+                    return self._to_public(record)
+        raise UserServiceError("用户不存在")
+
     def reset_password(self, *, user_id: str) -> tuple[UserPublic, str]:
         temporary_password = generate_temporary_password()
         with self._lock:
