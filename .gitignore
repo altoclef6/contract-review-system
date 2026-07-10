@@ -17,6 +17,8 @@ data/contracts/
 data/model-configs/
 data/prompt-templates/
 data/chats/
+data/workflows/
+data/notifications/
 data/security/
 runtime-logs/
 demo_assets/

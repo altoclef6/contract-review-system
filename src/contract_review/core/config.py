@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     model_config_data_dir: Path = Path("data/model-configs")
     prompt_template_data_dir: Path = Path("data/prompt-templates")
     chat_data_dir: Path = Path("data/chats")
+    workflow_data_dir: Path = Path("data/workflows")
+    notification_data_dir: Path = Path("data/notifications")
     security_data_dir: Path = Path("data/security")
     max_upload_size_mb: int = 50
 

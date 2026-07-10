@@ -19,6 +19,8 @@ ENTERPRISE_API_PREFIXES = (
     "/api/v1/prompt-templates",
     "/api/v1/chats",
     "/api/v1/analysis-history",
+    "/api/v1/workflows",
+    "/api/v1/notifications",
 )
 
 

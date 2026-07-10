@@ -19,6 +19,8 @@ class Permission(StrEnum):
     contracts_write = "contracts:write"
     reviews_run = "reviews:run"
     reviews_history = "reviews:history"
+    workflows_approve = "workflows:approve"
+    notifications_read = "notifications:read"
     prompts_manage = "prompts:manage"
     models_manage = "models:manage"
 
@@ -30,12 +32,15 @@ ROLE_PERMISSIONS: dict[UserRole, set[Permission]] = {
         Permission.contracts_write,
         Permission.reviews_run,
         Permission.reviews_history,
+        Permission.workflows_approve,
+        Permission.notifications_read,
         Permission.prompts_manage,
     },
     UserRole.employee: {
         Permission.contracts_read,
         Permission.contracts_write,
         Permission.reviews_run,
+        Permission.notifications_read,
     },
 }
 

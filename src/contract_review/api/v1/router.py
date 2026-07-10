@@ -9,8 +9,10 @@ from contract_review.api.v1.endpoints import (
     health,
     llm,
     model_configs,
+    notifications,
     prompt_templates,
     reviews,
+    workflows,
 )
 
 api_router = APIRouter()
@@ -21,6 +23,8 @@ api_router.include_router(model_configs.router, prefix="/model-configs", tags=["
 api_router.include_router(
     prompt_templates.router, prefix="/prompt-templates", tags=["Prompt 模板中心"]
 )
+api_router.include_router(workflows.router, prefix="/workflows", tags=["合同审批工作流"])
+api_router.include_router(notifications.router, prefix="/notifications", tags=["通知中心"])
 api_router.include_router(chats.router, prefix="/chats", tags=["合同 AI 助手"])
 api_router.include_router(
     analysis_history.router,
