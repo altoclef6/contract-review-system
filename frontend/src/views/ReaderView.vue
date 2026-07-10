@@ -1,0 +1,7 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'; import { useRoute } from 'vue-router'; import { api } from '../api'
+const route=useRoute(); const reviewId=String(route.params.reviewId); const report=ref<any>(); const selected=ref<any>(); const pdfUrl=ref('')
+onMounted(async()=>{try{report.value=(await api.get(`/reviews/${reviewId}`)).data;const response=await api.get(`/reader/${reviewId}/file`,{responseType:'blob'});pdfUrl.value=URL.createObjectURL(response.data)}catch{}})
+async function locate(risk:any){selected.value=risk;const text=risk.相关条款;if(text&&text.length>1){const r=await api.get(`/reader/${reviewId}/locations`,{params:{text:text.slice(0,120)}});const page=r.data.data.locations[0]?.page;if(page)pdfUrl.value=`${pdfUrl.value}#page=${page}`}}
+</script>
+<template><div class="reader"><section class="pdf-pane"><iframe v-if="pdfUrl" :src="pdfUrl" title="PDF 合同预览"/><el-empty v-else description="正在载入 PDF"/></section><aside class="analysis-pane"><div class="panel-title"><h2>AI 风险分析</h2><el-tag>{{report?.总体风险等级}}</el-tag></div><button v-for="risk in report?.风险点" :key="risk.风险编号" class="risk-row" :class="[`risk-${risk.风险等级}`,{selected:selected===risk}]" @click="locate(risk)"><span>{{risk.短标题||risk.风险类别}}</span><b>{{risk.风险标题}}</b><small>{{risk.问题说明}}</small></button><div v-if="selected" class="clause-advice"><h3>修改建议</h3><p>{{selected.修改方向}}</p></div></aside></div></template>

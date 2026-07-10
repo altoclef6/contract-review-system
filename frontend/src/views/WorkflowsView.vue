@@ -1,0 +1,8 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'; import { ElMessage } from 'element-plus'; import { api } from '../api'; import { useAuthStore } from '../stores/auth'
+const auth=useAuthStore();const items=ref<any[]>([]);const labels:any={uploaded:'已上传',ai_review:'AI 初审',legal_review:'法务审核',manager_review:'主管审核',archived:'已归档',rejected:'已驳回'}
+async function load(){items.value=(await api.get('/workflows')).data.data}
+async function act(item:any,action:string){try{await api.post(`/workflows/${item.id}/actions`,{action});ElMessage.success('审批状态已更新');load()}catch(e:any){ElMessage.error(e.response?.data?.message||'当前不能执行此操作')}}
+onMounted(load)
+</script>
+<template><div class="page-head"><div><h1>审批流程</h1><p>AI 初审、法务审核、主管审核与归档全程留痕</p></div></div><section class="panel table-panel"><el-table :data="items"><el-table-column prop="contract_id" label="合同编号" min-width="180"/><el-table-column label="当前节点" width="120"><template #default="s"><el-tag>{{labels[s.row.current_step]}}</el-tag></template></el-table-column><el-table-column prop="updated_at" label="更新时间" width="190"/><el-table-column label="操作" min-width="260"><template #default="s"><el-button v-if="s.row.current_step==='uploaded'" size="small" @click="act(s.row,'start_ai_review')">启动 AI 初审</el-button><el-button v-if="s.row.current_step==='ai_review'&&auth.user?.role!=='employee'" size="small" @click="act(s.row,'ai_completed')">确认初审完成</el-button><template v-if="['legal_review','manager_review'].includes(s.row.current_step)"><el-button size="small" type="primary" @click="act(s.row,'approve')">通过</el-button><el-button size="small" type="danger" plain @click="act(s.row,'reject')">驳回</el-button></template></template></el-table-column></el-table></section></template>

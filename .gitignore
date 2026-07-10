@@ -22,5 +22,8 @@ data/notifications/
 data/security/
 runtime-logs/
 demo_assets/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
 
 *.log
