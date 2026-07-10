@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from contract_review.infrastructure.document_store import JsonDocumentStore
 from contract_review.llm.json_client import call_llm_text
 from contract_review.schemas.chat import ChatAskResponse, ChatMessage, ChatRole, ChatSessionPublic
 from contract_review.services.history_service import HistoryService
@@ -21,6 +22,7 @@ class ChatService:
 
     def __init__(self, data_dir: Path, review_data_dir: Path) -> None:
         self.path = data_dir / "sessions.json"
+        self.store = JsonDocumentStore(self.path, "chat_sessions")
         self.history = HistoryService(review_data_dir)
 
     def create(self, owner_id: str, review_id: str | None, title: str | None) -> ChatSessionPublic:
@@ -122,17 +124,11 @@ class ChatService:
         }
 
     def _load(self) -> list[dict[str, Any]]:
-        if not self.path.exists():
-            return []
-        try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            return []
+        data = self.store.read([])
         return data if isinstance(data, list) else []
 
     def _save(self, records: list[dict[str, Any]]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.store.write(records)
 
     def _to_public(self, record: dict[str, Any]) -> ChatSessionPublic:
         return ChatSessionPublic.model_validate(record)

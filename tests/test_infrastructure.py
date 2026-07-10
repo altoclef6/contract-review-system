@@ -18,6 +18,7 @@ def test_enterprise_postgresql_schema_compiles() -> None:
         "workflows",
         "notifications",
         "audit_logs",
+        "app_state",
     }
     assert expected.issubset(Base.metadata.tables)
     for table_name in expected:

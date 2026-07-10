@@ -33,6 +33,7 @@ class ContractCreate(BaseModel):
     counterparty: str | None = Field(default=None, max_length=160)
     file_name: str | None = Field(default=None, max_length=260)
     description: str | None = Field(default=None, max_length=1000)
+    expires_at: datetime | None = None
 
 
 class ContractUpdate(BaseModel):
@@ -42,6 +43,7 @@ class ContractUpdate(BaseModel):
     counterparty: str | None = Field(default=None, max_length=160)
     status: ContractStatus | None = None
     description: str | None = Field(default=None, max_length=1000)
+    expires_at: datetime | None = None
 
 
 class ContractVersionCreate(BaseModel):
@@ -74,6 +76,7 @@ class ContractRecord(BaseModel):
     updated_at: datetime
     created_by: str
     updated_by: str
+    expires_at: datetime | None = None
     versions: list[ContractVersion] = Field(default_factory=list)
 
 

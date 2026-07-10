@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from contract_review.infrastructure.document_store import JsonDocumentStore
 from contract_review.schemas.notification import NotificationPublic
 
 
@@ -19,6 +19,7 @@ class NotificationService:
 
     def __init__(self, data_dir: Path) -> None:
         self.path = data_dir / "notifications.json"
+        self.store = JsonDocumentStore(self.path, "notifications")
 
     def create(
         self,
@@ -72,14 +73,8 @@ class NotificationService:
             return count
 
     def _load(self) -> list[dict[str, Any]]:
-        if not self.path.exists():
-            return []
-        try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            return []
+        data = self.store.read([])
         return data if isinstance(data, list) else []
 
     def _save(self, records: list[dict[str, Any]]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.store.write(records)

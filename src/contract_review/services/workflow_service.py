@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from contract_review.infrastructure.document_store import JsonDocumentStore
 from contract_review.schemas.auth import UserPublic, UserRole
 from contract_review.schemas.workflow import (
     WorkflowAction,
@@ -26,6 +26,7 @@ class WorkflowService:
 
     def __init__(self, data_dir: Path, notifications: NotificationService) -> None:
         self.path = data_dir / "workflows.json"
+        self.store = JsonDocumentStore(self.path, "workflows")
         self.notifications = notifications
 
     def create(self, contract_id: str, review_id: str | None, actor: UserPublic) -> WorkflowPublic:
@@ -148,17 +149,11 @@ class WorkflowService:
         raise WorkflowServiceError("审批流程不存在")
 
     def _load(self) -> list[dict[str, Any]]:
-        if not self.path.exists():
-            return []
-        try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            return []
+        data = self.store.read([])
         return data if isinstance(data, list) else []
 
     def _save(self, records: list[dict[str, Any]]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.store.write(records)
 
     def _now(self) -> str:
         return datetime.now(timezone.utc).isoformat()

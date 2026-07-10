@@ -24,4 +24,3 @@ def test_llm_validate_requires_valid_key(monkeypatch) -> None:
 
     assert response.status_code == 400
     assert "验证失败" in response.json()["detail"]
-

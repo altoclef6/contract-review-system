@@ -1,0 +1,13 @@
+.git
+.venv
+.pytest_cache
+.ruff_cache
+.playwright-browsers
+frontend/node_modules
+frontend/dist
+data
+demo_assets
+runtime-logs
+__pycache__
+*.pyc
+.env

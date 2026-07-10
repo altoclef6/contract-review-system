@@ -17,4 +17,10 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
     task_time_limit=900,
+    beat_schedule={
+        "contract-expiration-reminders": {
+            "task": "contract_review.send_expiration_reminders",
+            "schedule": 86400.0,
+        }
+    },
 )

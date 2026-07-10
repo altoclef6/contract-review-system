@@ -98,14 +98,18 @@ async def update_contract(
     audit: AuditService = Depends(get_audit_service),
 ) -> ApiResponse[ContractRecord]:
     try:
-        record = contracts.update_contract(contract_id=contract_id, payload=payload, actor_id=user.id)
+        record = contracts.update_contract(
+            contract_id=contract_id, payload=payload, actor_id=user.id
+        )
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     audit.log_operation(actor_id=user.id, action="contracts.update", target=contract_id)
     return api_success(record, "合同已更新")
 
 
-@router.post("/{contract_id}/favorite", response_model=ApiResponse[ContractRecord], summary="收藏合同")
+@router.post(
+    "/{contract_id}/favorite", response_model=ApiResponse[ContractRecord], summary="收藏合同"
+)
 async def set_favorite(
     contract_id: str,
     favorite: bool = Query(default=True),
@@ -114,14 +118,18 @@ async def set_favorite(
     audit: AuditService = Depends(get_audit_service),
 ) -> ApiResponse[ContractRecord]:
     try:
-        record = contracts.set_favorite(contract_id=contract_id, favorite=favorite, actor_id=user.id)
+        record = contracts.set_favorite(
+            contract_id=contract_id, favorite=favorite, actor_id=user.id
+        )
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     audit.log_operation(actor_id=user.id, action="contracts.favorite", target=contract_id)
     return api_success(record, "收藏状态已更新")
 
 
-@router.post("/{contract_id}/archive", response_model=ApiResponse[ContractRecord], summary="归档合同")
+@router.post(
+    "/{contract_id}/archive", response_model=ApiResponse[ContractRecord], summary="归档合同"
+)
 async def archive_contract(
     contract_id: str,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
@@ -151,7 +159,9 @@ async def delete_contract(
     return api_success(record, "合同已删除")
 
 
-@router.post("/{contract_id}/restore", response_model=ApiResponse[ContractRecord], summary="恢复合同")
+@router.post(
+    "/{contract_id}/restore", response_model=ApiResponse[ContractRecord], summary="恢复合同"
+)
 async def restore_contract(
     contract_id: str,
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),

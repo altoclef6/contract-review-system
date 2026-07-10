@@ -61,7 +61,9 @@ async def get_current_user(
             expected_type="access",
         )
     except TokenError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录状态无效") from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="登录状态无效"
+        ) from exc
 
     user = users.get_by_id(str(payload.get("sub")))
     if user is None or not user.is_active:

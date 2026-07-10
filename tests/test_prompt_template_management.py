@@ -64,7 +64,10 @@ def test_legal_user_manages_and_resolves_prompt(tmp_path: Path, monkeypatch) -> 
         update_response = client.patch(
             f"/api/v1/prompt-templates/{template_id}",
             headers=headers,
-            json={"description": "采购合同专用", "system_prompt": template["system_prompt"] + " 严格核验。"},
+            json={
+                "description": "采购合同专用",
+                "system_prompt": template["system_prompt"] + " 严格核验。",
+            },
         )
         assert update_response.status_code == 200
         assert update_response.json()["data"]["version"] == 2
@@ -88,7 +91,11 @@ def test_employee_cannot_manage_prompts(tmp_path: Path, monkeypatch) -> None:
     with TestClient(create_app()) as client:
         client.post(
             "/api/v1/auth/register",
-            json={"email": "employee@example.com", "password": "Employee12345!", "full_name": "普通员工"},
+            json={
+                "email": "employee@example.com",
+                "password": "Employee12345!",
+                "full_name": "普通员工",
+            },
         )
         token = _login(client, "employee@example.com", "Employee12345!")
         response = client.get(

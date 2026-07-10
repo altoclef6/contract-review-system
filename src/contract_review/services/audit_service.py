@@ -5,6 +5,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from contract_review.core.config import get_settings
+from contract_review.database.models import AuditLogModel
+from contract_review.database.session import get_session_factory
+
 
 class AuditService:
     def __init__(self, data_dir: Path) -> None:
@@ -51,7 +55,19 @@ class AuditService:
         )
 
     def _append(self, path: Path, payload: dict[str, Any]) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
         record = {"created_at": datetime.now(timezone.utc).isoformat(), **payload}
+        if get_settings().database_enabled:
+            with get_session_factory()() as session:
+                session.add(
+                    AuditLogModel(
+                        actor_id=payload.get("actor_id") or payload.get("user_id"),
+                        action=str(payload.get("action") or "auth.login"),
+                        target=payload.get("target") or payload.get("email"),
+                        details=record,
+                    )
+                )
+                session.commit()
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as file_obj:
             file_obj.write(json.dumps(record, ensure_ascii=False) + "\n")

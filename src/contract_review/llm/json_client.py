@@ -9,6 +9,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from contract_review.core.config import get_settings
 from contract_review.core.exceptions import LLMConfigurationError
+from contract_review.core.metrics import metrics_registry
 from contract_review.llm.factory import create_chat_model
 from contract_review.services.model_config_service import ModelConfigService
 
@@ -80,8 +81,10 @@ async def call_llm_json(
             ]
         )
     except Exception as exc:  # pragma: no cover - external API behavior
+        metrics_registry.record_ai_call(is_error=True)
         logger.warning("LLM call failed: %s", exc)
         return None
+    metrics_registry.record_ai_call()
 
     content = getattr(response, "content", "")
     if isinstance(content, list):
@@ -130,8 +133,10 @@ async def call_llm_text(
     try:
         response = await model.ainvoke(request_messages)
     except Exception as exc:  # pragma: no cover - external API behavior
+        metrics_registry.record_ai_call(is_error=True)
         logger.warning("LLM chat call failed: %s", exc)
         return None
+    metrics_registry.record_ai_call()
     content = getattr(response, "content", "")
     if isinstance(content, list):
         content = "\n".join(str(part) for part in content)

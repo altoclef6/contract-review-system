@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from contract_review.infrastructure.document_store import JsonDocumentStore
 from contract_review.prompts.compliance import COMPLIANCE_SYSTEM_PROMPT
 from contract_review.prompts.extraction import EXTRACTION_SYSTEM_PROMPT
 from contract_review.prompts.refinement import REFINEMENT_SYSTEM_PROMPT
@@ -35,6 +35,7 @@ class PromptTemplateService:
 
     def __init__(self, data_dir: Path) -> None:
         self.path = data_dir / "prompt_templates.json"
+        self.store = JsonDocumentStore(self.path, "prompt_templates")
 
     def list_templates(
         self,
@@ -70,7 +71,9 @@ class PromptTemplateService:
     def get(self, template_id: str) -> PromptTemplatePublic:
         return self._to_public(self._find(self._load(), template_id))
 
-    def update(self, template_id: str, payload: PromptTemplateUpdate, actor_id: str) -> PromptTemplatePublic:
+    def update(
+        self, template_id: str, payload: PromptTemplateUpdate, actor_id: str
+    ) -> PromptTemplatePublic:
         with self._lock:
             records = self._load()
             record = self._find(records, template_id)
@@ -88,7 +91,10 @@ class PromptTemplateService:
             if not target.get("is_enabled", True):
                 raise PromptTemplateServiceError("停用的模板不能设为默认模板")
             for record in records:
-                if record["contract_type"] == target["contract_type"] and record["stage"] == target["stage"]:
+                if (
+                    record["contract_type"] == target["contract_type"]
+                    and record["stage"] == target["stage"]
+                ):
                     record["is_default"] = record["id"] == template_id
             target["updated_at"] = self._now()
             target["updated_by"] = actor_id
@@ -112,7 +118,8 @@ class PromptTemplateService:
         records = self._load()
         for stage in PromptStage:
             candidates = [
-                item for item in records
+                item
+                for item in records
                 if item.get("is_enabled", True)
                 and item["stage"] == stage.value
                 and item["contract_type"] in {resolved_type.value, ContractType.general.value}
@@ -131,17 +138,11 @@ class PromptTemplateService:
         return result
 
     def _load(self) -> list[dict[str, Any]]:
-        if not self.path.exists():
-            return []
-        try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            return []
+        data = self.store.read([])
         return data if isinstance(data, list) else []
 
     def _save(self, records: list[dict[str, Any]]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.store.write(records)
 
     def _find(self, records: list[dict[str, Any]], template_id: str) -> dict[str, Any]:
         for record in records:

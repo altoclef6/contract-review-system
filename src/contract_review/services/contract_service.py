@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from contract_review.infrastructure.document_store import JsonDocumentStore
 from contract_review.schemas.contract_management import (
     ContractCategory,
     ContractCreate,
@@ -30,6 +30,7 @@ class ContractService:
 
     def __init__(self, data_dir: Path) -> None:
         self.path = data_dir / "contracts.json"
+        self.store = JsonDocumentStore(self.path, "contracts")
 
     def create_contract(self, *, payload: ContractCreate, actor_id: str) -> ContractRecord:
         with self._lock:
@@ -51,6 +52,7 @@ class ContractService:
                 "counterparty": payload.counterparty,
                 "file_name": payload.file_name,
                 "description": payload.description,
+                "expires_at": payload.expires_at.isoformat() if payload.expires_at else None,
                 "status": ContractStatus.draft.value,
                 "is_favorite": False,
                 "created_at": now,
@@ -125,6 +127,8 @@ class ContractService:
             for key, value in updates.items():
                 if hasattr(value, "value"):
                     value = value.value
+                if isinstance(value, datetime):
+                    value = value.isoformat()
                 record[key] = value
             record["updated_at"] = self._now()
             record["updated_by"] = actor_id
@@ -214,18 +218,25 @@ class ContractService:
                 return record
         raise ContractServiceError("合同不存在")
 
+    def list_expiring(self, days: int = 30) -> list[ContractRecord]:
+        now = datetime.now(timezone.utc)
+        deadline = now + timedelta(days=days)
+        result = []
+        for record in self._load():
+            value = record.get("expires_at")
+            if not value or record.get("status") in {"archived", "deleted"}:
+                continue
+            expires_at = datetime.fromisoformat(value)
+            if now <= expires_at <= deadline:
+                result.append(self._to_record(record))
+        return result
+
     def _load(self) -> list[dict[str, Any]]:
-        if not self.path.exists():
-            return []
-        try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            return []
+        data = self.store.read([])
         return data if isinstance(data, list) else []
 
     def _save(self, records: list[dict[str, Any]]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.store.write(records)
 
     def _to_record(self, record: dict[str, Any]) -> ContractRecord:
         return ContractRecord.model_validate(record)

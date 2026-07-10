@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -37,7 +36,7 @@ async def validate_llm_config(payload: LLMValidateRequest) -> LLMValidateRespons
     started = time.perf_counter()
     result = await call_llm_json(
         "你是模型连通性检查器。请只输出 JSON，不要输出 Markdown。",
-        '{"任务":"请返回 {\"ok\": true, \"message\": \"连接成功\"}"}',
+        '{"任务":"请返回 {"ok": true, "message": "连接成功"}"}',
         max_chars=200,
         llm_config={
             "provider": payload.provider,
@@ -61,4 +60,3 @@ async def validate_llm_config(payload: LLMValidateRequest) -> LLMValidateRespons
         latency_ms=latency_ms,
         message=str(result.get("message") or "连接成功"),
     )
-

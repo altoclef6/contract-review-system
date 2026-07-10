@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
 import threading
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -13,6 +11,7 @@ from contract_review.core.security import (
     hash_password,
     verify_password,
 )
+from contract_review.infrastructure.document_store import JsonDocumentStore
 from contract_review.schemas.auth import UserPublic, UserRole
 
 
@@ -26,6 +25,7 @@ class UserService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.path = settings.security_data_dir / "users.json"
+        self.store = JsonDocumentStore(self.path, "users")
         self._ensure_bootstrap_admin()
 
     def create_user(
@@ -155,17 +155,11 @@ class UserService:
             self._save(users)
 
     def _load(self) -> list[dict[str, Any]]:
-        if not self.path.exists():
-            return []
-        try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            return []
+        data = self.store.read([])
         return data if isinstance(data, list) else []
 
     def _save(self, users: list[dict[str, Any]]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.store.write(users)
 
     def _to_public(self, record: dict[str, Any]) -> UserPublic:
         return UserPublic.model_validate(

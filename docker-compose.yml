@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: contract_review
+      POSTGRES_USER: contract_review
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-contract_review_change_me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contract_review -d contract_review"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build: .
+    environment: &backend-env
+      ENVIRONMENT: prod
+      DATABASE_ENABLED: "true"
+      DATABASE_URL: postgresql+psycopg://contract_review:${POSTGRES_PASSWORD:-contract_review_change_me}@postgres:5432/contract_review
+      REDIS_ENABLED: "true"
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-replace-with-a-long-random-secret}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-Admin12345!}
+      ENABLE_LLM: ${ENABLE_LLM:-true}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-deepseek-chat}
+      TESSERACT_CMD: /usr/bin/tesseract
+      LIBREOFFICE_CMD: /usr/bin/libreoffice
+      TRUSTED_HOSTS: localhost,127.0.0.1
+    volumes:
+      - app_data:/app/data
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: celery -A contract_review.tasks.celery_app:celery_app worker --loglevel=INFO --pool=solo
+    environment: *backend-env
+    volumes:
+      - app_data:/app/data
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  beat:
+    build: .
+    command: celery -A contract_review.tasks.celery_app:celery_app beat --loglevel=INFO
+    environment: *backend-env
+    volumes:
+      - app_data:/app/data
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      backend: { condition: service_healthy }
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  app_data:

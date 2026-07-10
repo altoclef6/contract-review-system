@@ -29,7 +29,9 @@ def get_model_config_service(settings: Settings = Depends(get_settings)) -> Mode
     )
 
 
-@router.get("/providers", response_model=ApiResponse[list[ModelProviderInfo]], summary="模型服务商列表")
+@router.get(
+    "/providers", response_model=ApiResponse[list[ModelProviderInfo]], summary="模型服务商列表"
+)
 async def list_model_providers(
     _: UserPublic = Depends(require_permission(Permission.models_manage)),
     service: ModelConfigService = Depends(get_model_config_service),
@@ -98,7 +100,9 @@ async def update_model_config(
     return api_success(record, "模型配置已更新")
 
 
-@router.post("/{config_id}/active", response_model=ApiResponse[ModelConfigPublic], summary="启用模型配置")
+@router.post(
+    "/{config_id}/active", response_model=ApiResponse[ModelConfigPublic], summary="启用模型配置"
+)
 async def activate_model_config(
     config_id: str,
     user: UserPublic = Depends(require_permission(Permission.models_manage)),
@@ -113,7 +117,9 @@ async def activate_model_config(
     return api_success(record, "模型配置已启用")
 
 
-@router.delete("/{config_id}", response_model=ApiResponse[ModelConfigPublic], summary="删除模型配置")
+@router.delete(
+    "/{config_id}", response_model=ApiResponse[ModelConfigPublic], summary="删除模型配置"
+)
 async def delete_model_config(
     config_id: str,
     user: UserPublic = Depends(require_permission(Permission.models_manage)),

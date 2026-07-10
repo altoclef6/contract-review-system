@@ -62,7 +62,9 @@ def _extract_amounts(text: str) -> list[dict[str, str]]:
             amounts.append({"金额原文": _clean_text(match.group(1)), "币种": "人民币"})
 
     result: list[dict[str, str]] = []
-    for item in sorted(_deduplicate_dicts(amounts, "金额原文"), key=lambda row: len(row["金额原文"]), reverse=True):
+    for item in sorted(
+        _deduplicate_dicts(amounts, "金额原文"), key=lambda row: len(row["金额原文"]), reverse=True
+    ):
         if any(item["金额原文"] in existing["金额原文"] for existing in result):
             continue
         result.append(item)
@@ -112,13 +114,28 @@ def _rule_extract(text: str) -> dict[str, Any]:
     }
 
 
-def _merge_extraction(rule_result: dict[str, Any], llm_result: dict[str, Any] | None) -> dict[str, Any]:
+def _merge_extraction(
+    rule_result: dict[str, Any], llm_result: dict[str, Any] | None
+) -> dict[str, Any]:
     if not llm_result:
         return rule_result
 
     merged = dict(rule_result)
-    data = llm_result.get("结构化要素") if isinstance(llm_result.get("结构化要素"), dict) else llm_result
-    for key in ("合同主体", "合同金额", "履行期限", "付款条款", "违约责任条款", "争议解决条款", "保密条款", "解除终止条款"):
+    data = (
+        llm_result.get("结构化要素")
+        if isinstance(llm_result.get("结构化要素"), dict)
+        else llm_result
+    )
+    for key in (
+        "合同主体",
+        "合同金额",
+        "履行期限",
+        "付款条款",
+        "违约责任条款",
+        "争议解决条款",
+        "保密条款",
+        "解除终止条款",
+    ):
         value = data.get(key) if isinstance(data, dict) else None
         if value:
             merged[key] = value

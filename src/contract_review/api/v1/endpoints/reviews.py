@@ -28,7 +28,10 @@ router = APIRouter()
 )
 async def create_review(
     request: Request,
-    合同类型: str = Form(default="general", description="合同类型：general/purchase/sales/employment/lease/nda/service/other"),
+    合同类型: str = Form(
+        default="general",
+        description="合同类型：general/purchase/sales/employment/lease/nda/service/other",
+    ),
     合同文件: UploadFile = File(
         ...,
         title="合同文件",

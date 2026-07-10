@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from langchain_anthropic import ChatAnthropic
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
 from contract_review.core.config import Settings, get_settings
 from contract_review.core.exceptions import LLMConfigurationError
 
 
-def create_chat_model(settings: Settings | None = None, llm_config: dict[str, Any] | None = None) -> ChatOpenAI:
+def create_chat_model(
+    settings: Settings | None = None,
+    llm_config: dict[str, Any] | None = None,
+) -> BaseChatModel:
     """Create an OpenAI-compatible chat model client from environment settings.
 
     This project intentionally calls external API providers only. It does not load local
@@ -24,15 +29,22 @@ def create_chat_model(settings: Settings | None = None, llm_config: dict[str, An
     if hasattr(api_key, "get_secret_value"):
         api_key = api_key.get_secret_value()
 
-    kwargs = {
+    provider = runtime_config.get("provider") or resolved_settings.llm_provider
+    kwargs: dict[str, Any] = {
         "model": runtime_config.get("model_name") or resolved_settings.llm_model_name,
-        "api_key": api_key,
         "temperature": runtime_config.get("temperature", resolved_settings.llm_temperature),
         "timeout": resolved_settings.llm_timeout_seconds,
     }
     if runtime_config.get("max_tokens"):
         kwargs["max_tokens"] = int(runtime_config["max_tokens"])
     base_url = runtime_config.get("base_url") or resolved_settings.resolve_llm_base_url()
+    if provider == "claude":
+        kwargs["api_key"] = api_key
+        if base_url:
+            kwargs["base_url"] = base_url.removesuffix("/v1")
+        return ChatAnthropic(**kwargs)
+
+    kwargs["api_key"] = api_key
     if base_url:
         kwargs["base_url"] = base_url
 

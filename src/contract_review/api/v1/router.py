@@ -9,6 +9,7 @@ from contract_review.api.v1.endpoints import (
     health,
     llm,
     model_configs,
+    monitoring,
     notifications,
     prompt_templates,
     reader,
@@ -27,6 +28,7 @@ api_router.include_router(
 api_router.include_router(workflows.router, prefix="/workflows", tags=["合同审批工作流"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["通知中心"])
 api_router.include_router(reader.router, prefix="/reader", tags=["PDF 在线阅读器"])
+api_router.include_router(monitoring.router, prefix="/monitoring", tags=["系统监控"])
 api_router.include_router(chats.router, prefix="/chats", tags=["合同 AI 助手"])
 api_router.include_router(
     analysis_history.router,

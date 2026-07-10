@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import json
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from contract_review.infrastructure.document_store import JsonDocumentStore
 
 
 class HistoryService:
@@ -12,24 +13,16 @@ class HistoryService:
 
     def __init__(self, data_dir: Path) -> None:
         self.history_path = data_dir / "history.json"
+        self.store = JsonDocumentStore(self.history_path, "analysis_history")
 
     def append(self, item: dict[str, Any]) -> None:
         with self._lock:
             records = self.list_records()
             records.insert(0, item)
-            self.history_path.parent.mkdir(parents=True, exist_ok=True)
-            self.history_path.write_text(
-                json.dumps(records[:2000], ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
+            self.store.write(records[:2000])
 
     def list_records(self) -> list[dict[str, Any]]:
-        if not self.history_path.exists():
-            return []
-        try:
-            data = json.loads(self.history_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            return []
+        data = self.store.read([])
         return data if isinstance(data, list) else []
 
     def get(self, review_id: str) -> dict[str, Any] | None:

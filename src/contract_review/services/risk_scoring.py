@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 RISK_WEIGHTS = {
     "严重": 30,
     "高": 22,

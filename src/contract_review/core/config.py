@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     redis_url: SecretStr = SecretStr("redis://localhost:6379/0")
     redis_enabled: bool = False
     cache_ttl_seconds: int = 300
+    rate_limit_per_minute: int = 120
+    trusted_hosts: list[str] = Field(
+        default_factory=lambda: ["localhost", "127.0.0.1", "testserver"]
+    )
     celery_broker_url: SecretStr = SecretStr("redis://localhost:6379/1")
     celery_result_backend: SecretStr = SecretStr("redis://localhost:6379/2")
 
@@ -68,7 +72,7 @@ class Settings(BaseSettings):
     tessdata_dir: Path | None = None
     ocr_languages: str = "chi_sim+eng"
 
-    @field_validator("allowed_origins", mode="before")
+    @field_validator("allowed_origins", "trusted_hosts", mode="before")
     @classmethod
     def parse_allowed_origins(cls, value: str | list[str]) -> list[str]:
         if isinstance(value, str):

@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+import threading
+from collections import defaultdict, deque
+from time import perf_counter, time
+
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import JSONResponse, Response
+
+from contract_review.core.metrics import metrics_registry
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src 'self' blob:"
+        )
+        return response
+
+
+class MetricsMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        started = perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            metrics_registry.record_request(perf_counter() - started, True)
+            raise
+        metrics_registry.record_request(perf_counter() - started, response.status_code >= 500)
+        response.headers["X-Process-Time-Ms"] = f"{(perf_counter() - started) * 1000:.2f}"
+        return response
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, limit_per_minute: int) -> None:
+        super().__init__(app)
+        self.limit = limit_per_minute
+        self.requests: dict[str, deque[float]] = defaultdict(deque)
+        self.lock = threading.Lock()
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        if request.url.path in {"/api/v1/health", "/api/v1/metrics"}:
+            return await call_next(request)
+        client = request.client.host if request.client else "unknown"
+        now = time()
+        with self.lock:
+            bucket = self.requests[client]
+            while bucket and bucket[0] <= now - 60:
+                bucket.popleft()
+            if len(bucket) >= self.limit:
+                return JSONResponse(
+                    status_code=429,
+                    content={"code": 42900, "message": "请求过于频繁，请稍后重试", "data": None},
+                )
+            bucket.append(now)
+        return await call_next(request)

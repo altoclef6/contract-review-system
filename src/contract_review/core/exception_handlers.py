@@ -6,11 +6,10 @@ from fastapi.responses import JSONResponse
 
 from contract_review.core.exceptions import (
     ContractReviewError,
-    UnsupportedDocumentTypeError,
     UnsafeUploadError,
+    UnsupportedDocumentTypeError,
     UploadTooLargeError,
 )
-
 
 ENTERPRISE_API_PREFIXES = (
     "/api/v1/auth",
@@ -23,6 +22,7 @@ ENTERPRISE_API_PREFIXES = (
     "/api/v1/workflows",
     "/api/v1/notifications",
     "/api/v1/reader",
+    "/api/v1/monitoring",
 )
 
 

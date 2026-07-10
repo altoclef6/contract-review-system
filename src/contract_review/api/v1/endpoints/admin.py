@@ -27,7 +27,9 @@ async def list_users(
     return api_success(users.list_users())
 
 
-@router.patch("/users/{user_id}/role", response_model=ApiResponse[UserPublic], summary="修改用户角色")
+@router.patch(
+    "/users/{user_id}/role", response_model=ApiResponse[UserPublic], summary="修改用户角色"
+)
 async def set_user_role(
     user_id: str,
     payload: UpdateUserRoleRequest,

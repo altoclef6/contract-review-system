@@ -14,7 +14,10 @@ from contract_review.schemas.prompt_template import (
     PromptTemplateUpdate,
 )
 from contract_review.services.audit_service import AuditService
-from contract_review.services.prompt_template_service import PromptTemplateService, PromptTemplateServiceError
+from contract_review.services.prompt_template_service import (
+    PromptTemplateService,
+    PromptTemplateServiceError,
+)
 
 router = APIRouter()
 
@@ -33,7 +36,12 @@ async def list_prompt_templates(
     return api_success(service.list_templates(contract_type=contract_type, stage=stage))
 
 
-@router.post("", response_model=ApiResponse[PromptTemplatePublic], status_code=201, summary="创建 Prompt 模板")
+@router.post(
+    "",
+    response_model=ApiResponse[PromptTemplatePublic],
+    status_code=201,
+    summary="创建 Prompt 模板",
+)
 async def create_prompt_template(
     payload: PromptTemplateCreate,
     user: UserPublic = Depends(require_permission(Permission.prompts_manage)),
@@ -45,7 +53,9 @@ async def create_prompt_template(
     return api_success(record, "Prompt 模板已创建")
 
 
-@router.get("/{template_id}", response_model=ApiResponse[PromptTemplatePublic], summary="Prompt 模板详情")
+@router.get(
+    "/{template_id}", response_model=ApiResponse[PromptTemplatePublic], summary="Prompt 模板详情"
+)
 async def get_prompt_template(
     template_id: str,
     _: UserPublic = Depends(require_permission(Permission.prompts_manage)),
@@ -57,7 +67,9 @@ async def get_prompt_template(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.patch("/{template_id}", response_model=ApiResponse[PromptTemplatePublic], summary="更新 Prompt 模板")
+@router.patch(
+    "/{template_id}", response_model=ApiResponse[PromptTemplatePublic], summary="更新 Prompt 模板"
+)
 async def update_prompt_template(
     template_id: str,
     payload: PromptTemplateUpdate,
@@ -73,7 +85,11 @@ async def update_prompt_template(
     return api_success(record, "Prompt 模板已更新")
 
 
-@router.post("/{template_id}/default", response_model=ApiResponse[PromptTemplatePublic], summary="设为默认 Prompt 模板")
+@router.post(
+    "/{template_id}/default",
+    response_model=ApiResponse[PromptTemplatePublic],
+    summary="设为默认 Prompt 模板",
+)
 async def set_default_prompt_template(
     template_id: str,
     user: UserPublic = Depends(require_permission(Permission.prompts_manage)),
@@ -88,7 +104,9 @@ async def set_default_prompt_template(
     return api_success(record, "默认 Prompt 模板已更新")
 
 
-@router.delete("/{template_id}", response_model=ApiResponse[PromptTemplatePublic], summary="删除 Prompt 模板")
+@router.delete(
+    "/{template_id}", response_model=ApiResponse[PromptTemplatePublic], summary="删除 Prompt 模板"
+)
 async def delete_prompt_template(
     template_id: str,
     user: UserPublic = Depends(require_permission(Permission.prompts_manage)),

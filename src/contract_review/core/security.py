@@ -8,7 +8,6 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-
 TokenType = Literal["access", "refresh"]
 
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-
 KEYWORD_MAP = {
     "主体": ["主体", "甲方", "乙方", "授权", "签约"],
     "金额": ["金额", "价款", "付款", "支付", "结算", "发票"],
@@ -41,7 +40,9 @@ class KnowledgeService:
     def _collect_keywords(self, findings: list[dict[str, Any]]) -> set[str]:
         keywords: set[str] = set()
         for finding in findings:
-            source = " ".join(str(finding.get(key, "")) for key in ("风险类别", "风险标题", "问题说明"))
+            source = " ".join(
+                str(finding.get(key, "")) for key in ("风险类别", "风险标题", "问题说明")
+            )
             for group, words in KEYWORD_MAP.items():
                 if group in source or any(word in source for word in words):
                     keywords.update(words)

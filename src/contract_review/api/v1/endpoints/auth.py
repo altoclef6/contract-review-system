@@ -93,7 +93,9 @@ async def refresh_token(
             expected_type="refresh",
         )
     except TokenError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="刷新 Token 无效") from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="刷新 Token 无效"
+        ) from exc
     user = users.get_by_id(str(token_payload.get("sub")))
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号不可用")

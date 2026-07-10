@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -14,8 +15,12 @@ from contract_review.api.v1.router import api_router
 from contract_review.core.config import get_settings
 from contract_review.core.exception_handlers import register_exception_handlers
 from contract_review.core.logging import configure_logging
+from contract_review.core.middleware import (
+    MetricsMiddleware,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
 from contract_review.graph.graph_builder import build_contract_review_graph
-
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -70,6 +75,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(MetricsMiddleware)
+    app.add_middleware(RateLimitMiddleware, limit_per_minute=settings.rate_limit_per_minute)
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
