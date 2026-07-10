@@ -10,6 +10,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from contract_review.core.config import get_settings
 from contract_review.core.exceptions import LLMConfigurationError
 from contract_review.llm.factory import create_chat_model
+from contract_review.services.model_config_service import ModelConfigService
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +54,20 @@ async def call_llm_json(
     settings = get_settings()
     if not settings.enable_llm:
         return None
-    if not (llm_config or {}).get("api_key") and settings.resolve_llm_api_key() is None:
+    effective_llm_config = llm_config
+    if not (effective_llm_config or {}).get("api_key"):
+        active_config = ModelConfigService(
+            settings.model_config_data_dir,
+            settings.jwt_secret_key.get_secret_value(),
+        ).resolve_active_runtime_config()
+        if active_config is not None:
+            effective_llm_config = active_config.model_dump()
+
+    if not (effective_llm_config or {}).get("api_key") and settings.resolve_llm_api_key() is None:
         return None
 
     try:
-        model = create_chat_model(settings, llm_config)
+        model = create_chat_model(settings, effective_llm_config)
     except LLMConfigurationError:
         return None
 

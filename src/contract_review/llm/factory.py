@@ -27,9 +27,11 @@ def create_chat_model(settings: Settings | None = None, llm_config: dict[str, An
     kwargs = {
         "model": runtime_config.get("model_name") or resolved_settings.llm_model_name,
         "api_key": api_key,
-        "temperature": resolved_settings.llm_temperature,
+        "temperature": runtime_config.get("temperature", resolved_settings.llm_temperature),
         "timeout": resolved_settings.llm_timeout_seconds,
     }
+    if runtime_config.get("max_tokens"):
+        kwargs["max_tokens"] = int(runtime_config["max_tokens"])
     base_url = runtime_config.get("base_url") or resolved_settings.resolve_llm_base_url()
     if base_url:
         kwargs["base_url"] = base_url

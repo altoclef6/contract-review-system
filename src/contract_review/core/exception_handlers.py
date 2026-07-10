@@ -15,6 +15,7 @@ ENTERPRISE_API_PREFIXES = (
     "/api/v1/auth",
     "/api/v1/admin",
     "/api/v1/contracts",
+    "/api/v1/model-configs",
 )
 
 
