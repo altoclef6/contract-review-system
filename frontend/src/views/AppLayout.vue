@@ -16,6 +16,7 @@ import { api } from '../api'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore(); const route = useRoute(); const router = useRouter(); const unread = ref(0)
+const apiDocsUrl = import.meta.env.DEV ? 'http://127.0.0.1:8000/docs' : '/docs'
 const menus = computed(() => [
   ['/dashboard', '经营看板', DataAnalysis], ['/contracts', '合同中心', Files], ['/review', '智能审查', Document],
   ['/assistant', 'AI 法务助手', ChatLineRound], ['/workflows', '审批流程', Operation],
@@ -24,7 +25,7 @@ const menus = computed(() => [
 onMounted(async () => { try { unread.value = (await api.get('/notifications')).data.data.unread_count } catch {} })
 function logout() { auth.logout(); router.push('/login') }
 function openApiDocs() {
-  window.location.href = import.meta.env.DEV ? 'http://127.0.0.1:8000/docs' : '/docs'
+  window.location.href = apiDocsUrl
 }
 </script>
 
@@ -32,7 +33,7 @@ function openApiDocs() {
   <div class="shell">
     <aside class="sidebar">
       <div class="brand"><span>衡</span><div><b>衡契</b><small>CONTRACT AI</small></div></div>
-      <nav><router-link v-for="item in menus" :key="item[0]" :to="item[0]" :class="{ active: route.path.startsWith(item[0] as string) }"><el-icon><component :is="item[2]" /></el-icon>{{ item[1] }}</router-link></nav>
+      <nav><router-link v-for="item in menus" :key="item[0]" :to="item[0]" :class="{ active: route.path.startsWith(item[0] as string) }"><el-icon><component :is="item[2]" /></el-icon>{{ item[1] }}</router-link><a :href="apiDocsUrl" class="api-doc-link" title="打开 RESTful 接口文档"><el-icon><Link /></el-icon>接口文档</a></nav>
       <div class="account"><div class="avatar">{{ auth.user?.full_name?.slice(0, 1) }}</div><div><b>{{ auth.user?.full_name }}</b><small>{{ {admin:'管理员',legal:'法务',employee:'员工'}[auth.user?.role || 'employee'] }}</small></div><el-button text circle title="退出登录" @click="logout"><el-icon><SwitchButton /></el-icon></el-button></div>
     </aside>
     <section class="workspace">

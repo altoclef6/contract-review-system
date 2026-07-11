@@ -3,3 +3,4 @@
 .workspace,.page,.dashboard-grid,.dashboard-grid>*{min-width:0}.workspace{overflow:hidden}
 .assistant-layout{min-height:0;overflow:hidden}.sessions{min-height:0;overflow-y:auto}.conversation{min-height:0;overflow:hidden}.messages{min-height:0;overscroll-behavior:contain;scrollbar-gutter:stable}.message{min-width:0}.message p{overflow-wrap:anywhere;word-break:break-word}
 .topbar-actions{display:flex;align-items:center;gap:10px}.topbar-actions .el-button span{display:inline-flex;align-items:center;gap:6px}@media(max-width:560px){.topbar-actions>.el-button span{display:none}}
+.login-links{display:flex;align-items:center;justify-content:center;gap:22px;margin-top:18px}.login-links .text-button{margin:0}.login-links a{color:var(--green);font-size:14px;text-decoration:none}.login-links a:hover{text-decoration:underline}.sidebar nav .api-doc-link{margin-top:10px;border-top:1px solid #315748;color:#ffe0ea}.sidebar nav .api-doc-link:hover{color:#fff}

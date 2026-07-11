@@ -9,6 +9,7 @@ const password = ref('Admin12345!')
 const loading = ref(false)
 const auth = useAuthStore()
 const router = useRouter()
+const apiDocsUrl = import.meta.env.DEV ? 'http://127.0.0.1:8000/docs' : '/docs'
 async function submit() {
   loading.value = true
   try { await auth.login(email.value, password.value); await router.push('/dashboard') }
@@ -27,7 +28,7 @@ async function submit() {
         <el-form-item label="登录密码"><el-input v-model="password" type="password" show-password size="large" @keyup.enter="submit" /></el-form-item>
         <el-button type="primary" size="large" :loading="loading" class="full" @click="submit">登录工作台</el-button>
       </el-form>
-      <button class="text-button">忘记密码</button>
+      <div class="login-links"><button class="text-button">忘记密码</button><a :href="apiDocsUrl">查看接口文档</a></div>
     </section>
   </main>
 </template>
