@@ -62,7 +62,7 @@ def create_app() -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def home_page() -> RedirectResponse:
-        return RedirectResponse(f"{settings.frontend_url.rstrip('/')}/login")
+        return RedirectResponse(f"{settings.frontend_url.rstrip('/')}/")
 
     @app.get("/legacy", include_in_schema=False)
     async def legacy_home_page() -> HTMLResponse:
