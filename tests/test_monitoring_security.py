@@ -42,8 +42,8 @@ def test_security_headers_monitoring_and_prometheus(tmp_path: Path, monkeypatch)
 def test_rate_limit_returns_unified_error(tmp_path: Path, monkeypatch) -> None:
     _configure(monkeypatch, tmp_path, rate_limit=1)
     with TestClient(create_app()) as client:
-        first = client.get("/")
-        second = client.get("/")
+        first = client.get("/legacy")
+        second = client.get("/legacy")
         assert first.status_code == 200
         assert second.status_code == 429
         assert second.json()["code"] == 42900

@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from contract_review.api.v1.router import api_router
@@ -61,7 +61,11 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
 
     @app.get("/", include_in_schema=False)
-    async def home_page() -> HTMLResponse:
+    async def home_page() -> RedirectResponse:
+        return RedirectResponse(f"{settings.frontend_url.rstrip('/')}/login")
+
+    @app.get("/legacy", include_in_schema=False)
+    async def legacy_home_page() -> HTMLResponse:
         return render_html("home.html", settings.app_name)
 
     @app.get("/docs", include_in_schema=False)
