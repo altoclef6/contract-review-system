@@ -18,8 +18,16 @@ const result = ref<any>()
 const activeRisk = ref<any>()
 const highlightedClause = ref<HTMLElement>()
 const reviewStage = ref(0)
+const reviewProgress = ref(0)
+const elapsedSeconds = ref(0)
+const estimatedSeconds = ref(45)
 let stageTimer: number | undefined
 const reviewStages = ['协调者接收合同', '提取者解析全文', '合规 Agent 检索风险', '修订 Agent 生成建议']
+const progressHint = computed(() => {
+  if (reviewProgress.value >= 100) return '审查结果已生成'
+  const remaining = estimatedSeconds.value - elapsedSeconds.value
+  return remaining > 0 ? `预计还需约 ${remaining} 秒` : '正在等待外部模型返回结果'
+})
 
 const activeLocation = computed<TextLocation | undefined>(() => activeRisk.value?.原文定位)
 const locationStart = computed(() => activeLocation.value?.字符起点 ?? -1)
@@ -41,20 +49,34 @@ async function run() {
   if (!file.value) return ElMessage.warning('请选择合同文件')
   loading.value = true
   reviewStage.value = 0
+  reviewProgress.value = 4
+  elapsedSeconds.value = 0
+  const sizeMb = file.value.size / 1024 / 1024
+  const isImage = file.value.type.startsWith('image/')
+  estimatedSeconds.value = Math.round(Math.min(90, (isImage ? 55 : 40) + Math.min(35, sizeMb * 2)))
+  const startedAt = performance.now()
   window.clearInterval(stageTimer)
   stageTimer = window.setInterval(() => {
-    reviewStage.value = Math.min(reviewStage.value + 1, reviewStages.length - 1)
-  }, 1400)
+    elapsedSeconds.value = Math.floor((performance.now() - startedAt) / 1000)
+    const ratio = elapsedSeconds.value / estimatedSeconds.value
+    reviewProgress.value = ratio < 1
+      ? Math.min(88, 4 + ratio * 84)
+      : Math.min(95, 88 + 7 * (1 - Math.exp(-(elapsedSeconds.value - estimatedSeconds.value) / 28)))
+    reviewStage.value = reviewProgress.value < 18 ? 0 : reviewProgress.value < 46 ? 1 : reviewProgress.value < 74 ? 2 : 3
+  }, 250)
   const form = new FormData()
   form.append('合同文件', file.value)
   form.append('合同类型', type.value)
   try {
     result.value = (await api.post('/reviews', form)).data
+    reviewProgress.value = 100
+    reviewStage.value = reviewStages.length - 1
     activeRisk.value = result.value.risk_findings.find(
       (risk: any) => risk.原文定位?.字符起点 !== null,
     ) || result.value.risk_findings[0]
     ElMessage.success('审查完成')
     await focusRisk(activeRisk.value)
+    await new Promise((resolve) => window.setTimeout(resolve, 420))
   } catch (error: any) {
     ElMessage.error(error.response?.data?.detail || '审查失败')
   } finally {
@@ -161,12 +183,13 @@ const onChange = (upload: any) => { file.value = upload.raw }
           <span class="ritual-code">CONTRACT / ANALYSIS</span>
           <h2>审查协同域</h2>
           <p>{{ reviewStages[reviewStage] }}</p>
+          <div class="ritual-timing"><strong>{{ Math.round(reviewProgress) }}%</strong><span>已等待 {{ elapsedSeconds }} 秒 · {{ progressHint }}</span></div>
           <div class="ritual-agents">
             <div v-for="(stage, index) in reviewStages" :key="stage" :class="{ active: index <= reviewStage }">
               <i>{{ String(index + 1).padStart(2, '0') }}</i><span>{{ stage }}</span>
             </div>
           </div>
-          <div class="ritual-progress"><span :style="{ width: `${(reviewStage + 1) * 25}%` }"></span></div>
+          <div class="ritual-progress"><span :style="{ width: `${reviewProgress}%` }"></span></div>
         </div>
       </section>
     </Transition>
