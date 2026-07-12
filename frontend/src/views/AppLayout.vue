@@ -39,8 +39,9 @@ function openApiDocs() {
       <div class="account"><div class="avatar">{{ auth.user?.full_name?.slice(0, 1) }}</div><div><b>{{ auth.user?.full_name }}</b><small>{{ {admin:'管理员',legal:'法务',employee:'员工'}[auth.user?.role || 'employee'] }}</small></div><el-button text circle title="退出登录" @click="logout"><el-icon><SwitchButton /></el-icon></el-button></div>
     </aside>
     <section class="workspace">
+      <div class="workspace-particles" aria-hidden="true"><i v-for="index in 14" :key="index"></i></div>
       <header class="topbar"><div class="module-identity"><strong>{{ activeModule[3] }}</strong><div><small>CURRENT MODULE</small><b>{{ activeModule[1] }}</b></div></div><div class="topbar-heading"><small>ENTERPRISE ARCHIVE / CONTRACT CONTROL</small><b>企业合同风险控制中心</b><span><i></i> Multi-Agent 协同审查在线</span></div><div class="topbar-actions"><el-button title="打开 RESTful 接口文档" @click="openApiDocs"><el-icon><Link /></el-icon><span>接口文档</span></el-button><el-badge :value="unread" :hidden="!unread"><el-button circle title="通知中心"><el-icon><Bell /></el-icon></el-button></el-badge></div></header>
-      <main class="page"><div class="page-calibration" aria-hidden="true"><span>HENGQI / SYSTEM</span><i></i><span>SECURE LEVEL 04</span></div><router-view /></main>
+      <main class="page"><div class="page-calibration" aria-hidden="true"><span>HENGQI / SYSTEM</span><i></i><span>SECURE LEVEL 04</span></div><router-view v-slot="{ Component, route: currentRoute }"><transition name="module-shift" mode="out-in"><div :key="currentRoute.path" class="route-stage"><component :is="Component" /></div></transition></router-view></main>
     </section>
   </div>
 </template>
