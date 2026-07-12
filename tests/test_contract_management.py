@@ -104,3 +104,34 @@ def test_contracts_require_login(tmp_path: Path, monkeypatch) -> None:
         response = client.get("/api/v1/contracts")
         assert response.status_code == 401
         assert response.json()["code"] == 40100
+
+
+def test_employee_cannot_read_or_modify_another_users_contract(tmp_path: Path, monkeypatch) -> None:
+    _configure_stores(monkeypatch, tmp_path)
+    with TestClient(create_app()) as client:
+        def register_and_login(email: str) -> str:
+            password = "Employee12345!"
+            assert client.post(
+                "/api/v1/auth/register",
+                json={"email": email, "password": password, "full_name": email.split("@")[0]},
+            ).status_code == 201
+            response = client.post("/api/v1/auth/login", json={"email": email, "password": password})
+            return response.json()["data"]["access_token"]
+
+        owner_token = register_and_login("owner@example.com")
+        attacker_token = register_and_login("attacker@example.com")
+        created = client.post(
+            "/api/v1/contracts",
+            headers={"Authorization": f"Bearer {owner_token}"},
+            json={"title": "Owner contract", "category": "service", "tags": []},
+        )
+        contract_id = created.json()["data"]["id"]
+        attacker_headers = {"Authorization": f"Bearer {attacker_token}"}
+        assert client.get(f"/api/v1/contracts/{contract_id}", headers=attacker_headers).status_code == 404
+        assert client.patch(
+            f"/api/v1/contracts/{contract_id}",
+            headers=attacker_headers,
+            json={"title": "stolen"},
+        ).status_code == 404
+        listing = client.get("/api/v1/contracts", headers=attacker_headers)
+        assert listing.json()["data"]["total"] == 0

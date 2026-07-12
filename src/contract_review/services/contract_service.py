@@ -77,8 +77,12 @@ class ContractService:
         sort_by: ContractSortBy,
         sort_order: SortOrder,
         include_deleted: bool,
+        actor_id: str | None = None,
+        actor_role: str | None = None,
     ) -> ContractListResponse:
         records = [self._to_record(record) for record in self._load()]
+        if actor_id is not None and actor_role != "admin":
+            records = [item for item in records if item.created_by == actor_id]
         if not include_deleted:
             records = [item for item in records if item.status != ContractStatus.deleted]
         if search:
@@ -110,6 +114,11 @@ class ContractService:
 
     def get_contract(self, contract_id: str) -> ContractRecord:
         return self._to_record(self._find(contract_id))
+
+    def require_access(self, contract_id: str, *, actor_id: str, actor_role: str) -> None:
+        record = self._find(contract_id)
+        if actor_role != "admin" and record.get("created_by") != actor_id:
+            raise ContractServiceError("合同不可访问")
 
     def update_contract(
         self,
