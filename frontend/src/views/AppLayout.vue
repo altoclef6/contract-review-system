@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Bell,
@@ -23,7 +23,15 @@ const menus = computed(() => [
   ...(auth.user?.role !== 'employee' ? [['/settings', '系统配置', Setting, '06'] as any] : []),
 ])
 const activeModule = computed(() => menus.value.find((item) => route.path.startsWith(item[0] as string)) || menus.value[0])
-onMounted(async () => { try { unread.value = (await api.get('/notifications')).data.data.unread_count } catch {} })
+function trackPointer(event: PointerEvent) {
+  document.documentElement.style.setProperty('--cursor-x', `${event.clientX}px`)
+  document.documentElement.style.setProperty('--cursor-y', `${event.clientY}px`)
+}
+onMounted(async () => {
+  window.addEventListener('pointermove', trackPointer, { passive: true })
+  try { unread.value = (await api.get('/notifications')).data.data.unread_count } catch {}
+})
+onBeforeUnmount(() => window.removeEventListener('pointermove', trackPointer))
 function logout() { auth.logout(); router.push('/login') }
 function openApiDocs() {
   window.location.href = apiDocsUrl
