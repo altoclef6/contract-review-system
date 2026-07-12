@@ -32,12 +32,13 @@ function openApiDocs() {
 <template>
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand"><span>衡</span><div><b>衡契</b><small>CONTRACT AI</small></div></div>
+      <div class="brand"><span>衡</span><div><b>衡契</b><small>CONTRACT INTELLIGENCE</small></div></div>
+      <div class="system-status"><i></i><span>审查中枢在线</span><small>HQ / 01</small></div>
       <nav><router-link v-for="item in menus" :key="item[0]" :to="item[0]" :class="{ active: route.path.startsWith(item[0] as string) }"><el-icon><component :is="item[2]" /></el-icon>{{ item[1] }}</router-link><a :href="apiDocsUrl" class="api-doc-link" title="打开 RESTful 接口文档"><el-icon><Link /></el-icon>接口文档</a></nav>
       <div class="account"><div class="avatar">{{ auth.user?.full_name?.slice(0, 1) }}</div><div><b>{{ auth.user?.full_name }}</b><small>{{ {admin:'管理员',legal:'法务',employee:'员工'}[auth.user?.role || 'employee'] }}</small></div><el-button text circle title="退出登录" @click="logout"><el-icon><SwitchButton /></el-icon></el-button></div>
     </aside>
     <section class="workspace">
-      <header class="topbar"><div><b>企业合同风险控制中心</b><span>Multi-Agent 协同审查在线</span></div><div class="topbar-actions"><el-button title="打开 RESTful 接口文档" @click="openApiDocs"><el-icon><Link /></el-icon><span>接口文档</span></el-button><el-badge :value="unread" :hidden="!unread"><el-button circle title="通知中心"><el-icon><Bell /></el-icon></el-button></el-badge></div></header>
+      <header class="topbar"><div class="topbar-heading"><small>ENTERPRISE ARCHIVE / CONTRACT CONTROL</small><b>企业合同风险控制中心</b><span><i></i> Multi-Agent 协同审查在线</span></div><div class="topbar-actions"><el-button title="打开 RESTful 接口文档" @click="openApiDocs"><el-icon><Link /></el-icon><span>接口文档</span></el-button><el-badge :value="unread" :hidden="!unread"><el-button circle title="通知中心"><el-icon><Bell /></el-icon></el-button></el-badge></div></header>
       <main class="page"><router-view /></main>
     </section>
   </div>
