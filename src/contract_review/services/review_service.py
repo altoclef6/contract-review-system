@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -49,7 +50,13 @@ class ReviewService:
             "errors": [],
         }
         result = await self.graph.ainvoke(initial_state)
+        located_findings = self._attach_text_locations(
+            result.get("compliance_findings", []), raw_text
+        )
+        result["compliance_findings"] = located_findings
         final_report = result.get("final_report")
+        if final_report is not None:
+            final_report["风险点"] = located_findings
         export_paths: dict[str, str] = {}
         if final_report:
             generated = await asyncio.to_thread(
@@ -82,6 +89,7 @@ class ReviewService:
         return ReviewResponse(
             review_id=review_id,
             file_name=original_file_name,
+            contract_text=raw_text,
             status="已完成",
             extracted_fields=result.get("extracted_fields", {}),
             risk_findings=result.get("compliance_findings", []),
@@ -92,3 +100,82 @@ class ReviewService:
             agent_trace=result.get("agent_trace", []),
             errors=result.get("errors", []),
         )
+
+    def _attach_text_locations(
+        self,
+        findings: list[dict[str, Any]],
+        contract_text: str,
+    ) -> list[dict[str, Any]]:
+        keyword_map = {
+            "主体信息": ("甲方", "乙方", "买方", "卖方"),
+            "交易金额": ("合同金额", "价款", "人民币"),
+            "履行期限": ("履行期限", "合同期限", "交付期限"),
+            "付款结算": ("付款", "支付", "结算"),
+            "违约责任": ("违约", "赔偿", "违约金"),
+            "争议解决": ("争议", "仲裁", "管辖"),
+            "保密义务": ("保密", "商业秘密"),
+            "解除终止": ("解除", "终止", "不可抗力"),
+        }
+        located: list[dict[str, Any]] = []
+        for finding in findings:
+            item = dict(finding)
+            clause = str(item.get("相关条款") or "").strip()
+            match = self._find_clause(contract_text, clause)
+            exact = match is not None
+            if match is None:
+                for keyword in keyword_map.get(str(item.get("风险类别")), ()):
+                    match = self._find_keyword_context(contract_text, keyword)
+                    if match is not None:
+                        break
+            if match is None:
+                item["原文定位"] = {
+                    "定位状态": "缺失条款",
+                    "字符起点": None,
+                    "字符终点": None,
+                    "定位文本": "",
+                }
+            else:
+                start, end = match
+                item["原文定位"] = {
+                    "定位状态": "精确定位" if exact else "相关上下文",
+                    "字符起点": start,
+                    "字符终点": end,
+                    "定位文本": contract_text[start:end],
+                }
+            located.append(item)
+        return located
+
+    def _find_clause(self, text: str, clause: str) -> tuple[int, int] | None:
+        if not clause or clause.startswith("未在合同文本中"):
+            return None
+        candidates = [clause]
+        candidates.extend(
+            segment.strip()
+            for segment in re.split(r"[。；;\n]", clause)
+            if len(segment.strip()) >= 8
+        )
+        for candidate in sorted(set(candidates), key=len, reverse=True):
+            start = text.find(candidate)
+            if start >= 0:
+                return start, start + len(candidate)
+        return None
+
+    def _find_keyword_context(self, text: str, keyword: str) -> tuple[int, int] | None:
+        position = text.find(keyword)
+        if position < 0:
+            return None
+        start = (
+            max(
+                text.rfind("\n", 0, position),
+                text.rfind("。", 0, position),
+                text.rfind("；", 0, position),
+            )
+            + 1
+        )
+        endings = [
+            value
+            for value in (text.find(mark, position) for mark in ("\n", "。", "；"))
+            if value >= 0
+        ]
+        end = min(endings) + 1 if endings else min(len(text), position + 160)
+        return start, end

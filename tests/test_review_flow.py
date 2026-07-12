@@ -41,6 +41,7 @@ def test_review_docx_flow(tmp_path: Path, monkeypatch) -> None:
     payload = response.json()
     assert response.status_code == 201
     assert payload["status"] == "已完成"
+    assert "甲方：北京示例科技有限公司" in payload["contract_text"]
     assert payload["extracted_fields"]["合同主体"]
     assert payload["extracted_fields"]["合同金额"]
     assert payload["final_report"]["总体风险等级"] in {"低风险", "中风险", "高风险"}
@@ -50,6 +51,7 @@ def test_review_docx_flow(tmp_path: Path, monkeypatch) -> None:
     assert payload["export_paths"]["json"]
     assert payload["export_paths"]["docx"]
     assert payload["export_paths"]["pdf"]
+    assert all("原文定位" in finding for finding in payload["risk_findings"])
 
 
 def test_review_history_and_download(tmp_path: Path, monkeypatch) -> None:

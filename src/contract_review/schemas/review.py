@@ -58,6 +58,11 @@ class ReviewResponse(BaseModel):
 
     review_id: str = Field(title="审查任务编号", description="系统生成的唯一审查任务编号。")
     file_name: str = Field(title="合同文件名", description="用户上传的原始合同文件名。")
+    contract_text: str = Field(
+        default="",
+        title="合同全文",
+        description="从 PDF、Word 或扫描件中解析出的合同全文，用于风险原文联动定位。",
+    )
     status: Literal["已完成", "失败"] = Field(
         title="任务状态", description="合同审查任务的处理状态。"
     )
