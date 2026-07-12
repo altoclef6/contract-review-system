@@ -10,7 +10,7 @@ onMounted(async () => {
     stats.value = (await api.get('/analysis-history/statistics')).data.data
     recent.value = (await api.get('/analysis-history?page_size=6')).data.data.items
     const chart = echarts.init(document.getElementById('risk-chart')!)
-    chart.setOption({ tooltip:{trigger:'item'}, color:['#e84a78','#f2b84b','#2ba67a'], series:[{type:'pie',radius:['54%','76%'],label:{color:'#365046'},data:Object.entries(stats.value.risk_levels).map(([name,value])=>({name,value}))}] })
+    chart.setOption({ tooltip:{trigger:'item'}, color:['#DC2626','#D97706','#16A34A','#2563EB'], series:[{type:'pie',radius:['54%','76%'],label:{color:'#475569'},data:Object.entries(stats.value.risk_levels).map(([name,value])=>({name,value}))}] })
   } catch {}
 })
 </script>

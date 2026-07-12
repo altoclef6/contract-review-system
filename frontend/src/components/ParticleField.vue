@@ -94,8 +94,8 @@ function move(event: PointerEvent) {
 function animate() {
   if (!context) return
   context.clearRect(0, 0, width, height)
-  context.fillStyle = '#f4f7f5'
-  context.shadowColor = 'rgba(255,255,255,.4)'
+  context.fillStyle = '#CBD5E1'
+  context.shadowColor = 'rgba(37,99,235,.18)'
   context.shadowBlur = 3
   for (const point of points) {
     const dx = point.x - pointer.x
