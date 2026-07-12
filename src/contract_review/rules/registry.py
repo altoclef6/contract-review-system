@@ -1,0 +1,86 @@
+from __future__ import annotations
+
+from contract_review.rules.models import ConditionType, RuleDefinition, Severity
+
+# Curated deterministic indicators for software development and technical service contracts.
+# These are review triggers, not hard-coded legal conclusions.
+RULE_SPECS: list[tuple[str, str, str, Severity, ConditionType, list[str]]] = [
+    ("R001", "合同主体名称缺失", "party", Severity.high, ConditionType.missing, [r"甲方.{0,20}(公司|名称)", r"乙方.{0,20}(公司|名称)"]),
+    ("R002", "统一社会信用代码缺失", "party", Severity.medium, ConditionType.missing, [r"统一社会信用代码"]),
+    ("R003", "联系地址或通知方式缺失", "notice", Severity.medium, ConditionType.missing, [r"联系地址|通知方式|送达地址"]),
+    ("R004", "项目范围表述明显开放", "scope", Severity.high, ConditionType.regex, [r"包括但不限于|以及甲方要求的其他.{0,12}(工作|服务)"]),
+    ("R005", "无限增加需求且不增加费用", "scope", Severity.critical, ConditionType.regex, [r"(任意|无限).{0,12}(增加|变更).{0,12}需求.{0,20}(不增加|不另行).{0,8}费用"]),
+    ("R006", "开发期限明显过短", "delivery", Severity.high, ConditionType.regex, [r"(开发|交付).{0,12}(1|2|3|4|5|6|7)\s*(日|天)内"]),
+    ("R007", "甲方不配合仍不允许顺延", "delivery", Severity.high, ConditionType.regex, [r"甲方.{0,20}不配合.{0,20}(不得|不予).{0,8}顺延"]),
+    ("R008", "缺少付款节点", "payment", Severity.high, ConditionType.missing, [r"付款|支付|结算"]),
+    ("R009", "无预付款且尾款周期过长", "payment", Severity.medium, ConditionType.all, [r"无预付款|不支付预付款", r"尾款.{0,12}(1[289]0|[2-9]\d{2,})\s*天"]),
+    ("R010", "付款周期超过180天", "payment", Severity.high, ConditionType.regex, [r"(付款|支付).{0,20}(18[1-9]|19\d|[2-9]\d{2,})\s*(日|天)"]),
+    ("R011", "付款由一方单方面决定", "payment", Severity.high, ConditionType.regex, [r"付款.{0,20}(完全|仅).{0,12}(由|以)甲方.{0,12}(决定|确认为准)"]),
+    ("R012", "发票金额与合同金额异常", "payment", Severity.high, ConditionType.regex, [r"发票金额.{0,20}(高于|超过|不等于).{0,12}合同金额"]),
+    ("R013", "验收标准仅为甲方满意", "acceptance", Severity.high, ConditionType.regex, [r"验收.{0,16}(以|须).{0,8}甲方满意"]),
+    ("R014", "缺少验收期限", "acceptance", Severity.medium, ConditionType.missing, [r"验收.{0,20}(日|天|期限)"]),
+    ("R015", "实际使用仍不视为验收", "acceptance", Severity.medium, ConditionType.regex, [r"实际使用.{0,12}(不视为|不构成).{0,8}验收"]),
+    ("R016", "无限次免费修改", "service", Severity.critical, ConditionType.regex, [r"(无限次|不限次数).{0,8}(免费)?修改"]),
+    ("R017", "保证系统绝对无错误", "quality", Severity.high, ConditionType.regex, [r"(绝对|保证).{0,8}(无错误|无缺陷|零故障)"]),
+    ("R018", "保证AI准确率100%", "ai", Severity.critical, ConditionType.regex, [r"AI.{0,12}(准确率|正确率).{0,8}100%"]),
+    ("R019", "无限用户并发承诺", "quality", Severity.high, ConditionType.regex, [r"无限.{0,8}(用户|并发)"]),
+    ("R020", "不合理的极低响应时间", "service", Severity.high, ConditionType.regex, [r"(故障|服务).{0,12}(1|2|3|4|5)\s*(秒|分钟)内响应"]),
+    ("R021", "违约金比例明显过高", "liability", Severity.high, ConditionType.regex, [r"违约金.{0,16}([5-9]\d|100)%"]),
+    ("R022", "多项违约金重复累计", "liability", Severity.high, ConditionType.regex, [r"违约金.{0,20}(累计|叠加|同时适用)"]),
+    ("R023", "赔偿责任无上限", "liability", Severity.critical, ConditionType.regex, [r"赔偿.{0,12}(不设上限|无限责任|无上限)"]),
+    ("R024", "一方完全免责", "liability", Severity.critical, ConditionType.regex, [r"(甲方|乙方).{0,20}(不承担任何责任|完全免责)"]),
+    ("R025", "单方解除权严重不平衡", "termination", Severity.high, ConditionType.regex, [r"甲方.{0,12}可随时.{0,8}解除.{0,30}乙方.{0,12}(不得|无权).{0,8}解除"]),
+    ("R026", "长期不付款也不得解除", "termination", Severity.critical, ConditionType.regex, [r"(逾期|长期).{0,8}不付款.{0,20}乙方.{0,8}(不得|无权).{0,8}解除"]),
+    ("R027", "永久免费维护", "service", Severity.high, ConditionType.regex, [r"永久.{0,8}免费.{0,8}(维护|服务)"]),
+    ("R028", "全年无偿支持", "service", Severity.high, ConditionType.regex, [r"(24小时|7×24|7x24).{0,12}(全年|无偿|免费).{0,8}(支持|服务)"]),
+    ("R029", "不合理故障响应时间", "service", Severity.high, ConditionType.regex, [r"故障.{0,12}(立即|即时|零分钟).{0,8}响应"]),
+    ("R030", "既有知识产权全部转让", "ip", Severity.critical, ConditionType.regex, [r"既有.{0,8}知识产权.{0,20}(全部|一并).{0,8}转让"]),
+    ("R031", "未来成果提前全部转让", "ip", Severity.high, ConditionType.regex, [r"未来.{0,12}(开发成果|知识产权).{0,20}全部.{0,8}(归属|转让)"]),
+    ("R032", "禁止使用一般经验和方法", "ip", Severity.high, ConditionType.regex, [r"(不得|禁止).{0,12}(使用|利用).{0,12}(一般经验|通用方法|一般技能)"]),
+    ("R033", "第三方组件责任全部转嫁", "ip", Severity.high, ConditionType.regex, [r"第三方.{0,8}(组件|软件).{0,20}(全部|一切).{0,8}(由乙方承担|乙方负责)"]),
+    ("R034", "开源许可责任不明确", "ip", Severity.medium, ConditionType.missing, [r"开源.{0,12}(许可|许可证|license)"]),
+    ("R035", "缺少知识产权归属", "ip", Severity.high, ConditionType.missing, [r"知识产权.{0,12}(归属|所有)"]),
+    ("R036", "缺少保密条款", "confidentiality", Severity.high, ConditionType.missing, [r"保密|商业秘密"]),
+    ("R037", "保密义务完全单边", "confidentiality", Severity.medium, ConditionType.regex, [r"仅乙方.{0,12}(承担|负有).{0,8}保密"]),
+    ("R038", "保密范围无限", "confidentiality", Severity.high, ConditionType.regex, [r"保密.{0,20}(任何信息|全部信息|无论是否标识)"]),
+    ("R039", "保密违约金明显过高", "confidentiality", Severity.high, ConditionType.regex, [r"保密.{0,30}违约金.{0,12}([5-9]\d|100)%"]),
+    ("R040", "数据可任意上传第三方AI", "data", Severity.critical, ConditionType.regex, [r"数据.{0,20}(任意|无需授权).{0,12}上传.{0,12}(第三方|AI)"]),
+    ("R041", "未经授权用于模型训练", "data", Severity.critical, ConditionType.regex, [r"(无需|未经).{0,8}(同意|授权).{0,20}(训练|训练模型)"]),
+    ("R042", "缺少个人信息处理目的", "privacy", Severity.high, ConditionType.missing, [r"个人信息.{0,12}(处理目的|用于)"]),
+    ("R043", "缺少数据保存期限", "data", Severity.medium, ConditionType.missing, [r"数据.{0,12}(保存期限|保留期限)"]),
+    ("R044", "缺少数据删除机制", "data", Severity.high, ConditionType.missing, [r"数据.{0,12}(删除|销毁)"]),
+    ("R045", "缺少数据访问权限说明", "data", Severity.medium, ConditionType.missing, [r"数据.{0,12}(访问权限|授权访问)"]),
+    ("R046", "缺少数据泄露通知", "data", Severity.high, ConditionType.missing, [r"数据.{0,12}(泄露|安全事件).{0,12}(通知|告知)"]),
+    ("R047", "永久保存与随时删除矛盾", "data", Severity.high, ConditionType.all, [r"永久保存", r"随时删除"]),
+    ("R048", "缺少争议解决条款", "dispute", Severity.high, ConditionType.missing, [r"争议.{0,12}(诉讼|仲裁|法院)"]),
+    ("R049", "仲裁和诉讼同时冲突", "dispute", Severity.high, ConditionType.all, [r"仲裁委员会", r"人民法院|诉讼"]),
+    ("R050", "管辖机构由一方未来指定", "dispute", Severity.critical, ConditionType.regex, [r"(管辖|仲裁).{0,20}由(甲方|一方).{0,8}(另行|未来).{0,8}指定"]),
+    ("R051", "不可抗力只保护一方", "force_majeure", Severity.high, ConditionType.regex, [r"仅(甲方|乙方).{0,12}可.{0,8}主张不可抗力"]),
+    ("R052", "合同可被一方口头修改", "change", Severity.critical, ConditionType.regex, [r"(甲方|一方).{0,12}(口头|通知).{0,8}(修改|变更).{0,8}合同"]),
+    ("R053", "单方通知发出即送达", "notice", Severity.high, ConditionType.regex, [r"通知.{0,12}(发出|发送).{0,8}即视为送达"]),
+    ("R054", "自动续约无通知期限", "renewal", Severity.medium, ConditionType.regex, [r"自动续约(?![^。\n]{0,40}(提前|通知期限))"]),
+    ("R055", "竞业限制过宽", "non_compete", Severity.high, ConditionType.regex, [r"竞业限制.{0,30}(永久|全球|所有行业|超过.{0,4}年)"]),
+    ("R056", "竞业限制无合理补偿", "non_compete", Severity.high, ConditionType.all, [r"竞业限制", r"无补偿|不予补偿"]),
+    ("R057", "AI输出被作为正式法律意见", "ai", Severity.critical, ConditionType.regex, [r"AI.{0,12}(输出|审查).{0,12}(正式法律意见|法律结论)"]),
+    ("R058", "AI完全替代律师", "ai", Severity.critical, ConditionType.regex, [r"AI.{0,12}(完全|可以).{0,8}(替代|取代).{0,8}(律师|法务)"]),
+    ("R059", "缺少人工复核说明", "ai", Severity.high, ConditionType.missing, [r"人工复核|法务复核|律师复核"]),
+    ("R060", "生效条件明显单边", "effectiveness", Severity.high, ConditionType.regex, [r"仅经甲方.{0,12}(确认|批准|盖章).{0,8}(生效|方可生效)"]),
+]
+
+
+def default_registry() -> list[RuleDefinition]:
+    return [
+        RuleDefinition(
+            rule_id=rule_id,
+            rule_name=name,
+            description=f"检测审查触发项：{name}",
+            category=category,
+            severity=severity,
+            condition_type=condition_type,
+            condition={"patterns": patterns},
+            explanation=f"合同文本触发“{name}”审查指标，需要结合交易背景复核。",
+            recommendation="建议法务结合原文、履约能力和谈判背景进行复核并完善条款。",
+            requires_human_review=severity in {Severity.high, Severity.critical},
+        )
+        for rule_id, name, category, severity, condition_type, patterns in RULE_SPECS
+    ]

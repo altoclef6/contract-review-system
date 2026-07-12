@@ -166,3 +166,48 @@ class AppStateModel(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
+
+
+class RiskFindingModel(Base, TimestampMixin):
+    __tablename__ = "risk_findings"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("risk"))
+    contract_id: Mapped[str | None] = mapped_column(ForeignKey("contracts.id"), index=True)
+    review_task_id: Mapped[str] = mapped_column(ForeignKey("reviews.id"), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    category: Mapped[str] = mapped_column(String(80), index=True)
+    severity: Mapped[str] = mapped_column(String(20), index=True)
+    risk_score: Mapped[float] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(40), index=True)
+    confidence: Mapped[float] = mapped_column(Float)
+    contract_text: Mapped[str] = mapped_column(Text, default="")
+    normalized_text: Mapped[str] = mapped_column(Text, default="")
+    location: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    explanation: Mapped[str] = mapped_column(Text)
+    legal_basis: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    recommendation: Mapped[str] = mapped_column(Text)
+    suggested_revision: Mapped[str | None] = mapped_column(Text)
+    requires_human_review: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    agent_name: Mapped[str | None] = mapped_column(String(100))
+    rule_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    knowledge_document_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    reviewer_comment: Mapped[str | None] = mapped_column(Text)
+    ai_original_recommendation: Mapped[str | None] = mapped_column(Text)
+    human_final_opinion: Mapped[str | None] = mapped_column(Text)
+
+
+class KnowledgeDocumentModel(Base, TimestampMixin):
+    __tablename__ = "knowledge_documents"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    title: Mapped[str] = mapped_column(String(500), index=True)
+    source_type: Mapped[str] = mapped_column(String(40), index=True)
+    jurisdiction: Mapped[str | None] = mapped_column(String(120), index=True)
+    issuing_authority: Mapped[str | None] = mapped_column(String(255))
+    version: Mapped[str] = mapped_column(String(80))
+    effective_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expiry_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(30), index=True)
+    article_number: Mapped[str | None] = mapped_column(String(120), index=True)
+    content: Mapped[str] = mapped_column(Text)
+    source_url: Mapped[str | None] = mapped_column(String(1000))
+    checksum: Mapped[str] = mapped_column(String(64), index=True)

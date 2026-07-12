@@ -6,6 +6,32 @@ from typing import Any
 
 from contract_review.graph.state import ContractReviewState
 from contract_review.llm.json_client import call_llm_json
+from contract_review.rules import RuleEngine, default_registry
+from contract_review.rules.models import RuleMatch
+
+
+def _rule_match_to_legacy(match: RuleMatch, number: int) -> dict[str, Any]:
+    levels = {"low": "低", "medium": "中", "high": "高", "critical": "严重"}
+    return {
+        "风险编号": f"R{number:03d}",
+        "风险类别": match.category,
+        "风险等级": levels[match.severity.value],
+        "短标题": match.rule_name[:10],
+        "风险标题": match.rule_name,
+        "相关条款": match.contract_text,
+        "问题说明": match.explanation,
+        "审查依据": "；".join(match.legal_basis) if match.legal_basis else "未检索到可靠法律依据，需人工复核",
+        "修改方向": match.recommendation,
+        "来源": match.source,
+        "rule_id": match.rule_id,
+        "risk_score": match.risk_score,
+        "confidence": match.confidence,
+        "requires_human_review": match.requires_human_review,
+        "start_offset": match.start_offset,
+        "end_offset": match.end_offset,
+        "paragraph_index": match.paragraph_index,
+        "status": match.status,
+    }
 
 
 def _finding(
@@ -208,7 +234,9 @@ async def compliance_checker_node(state: ContractReviewState) -> dict:
     text = state.get("raw_text", "")
     fields = state.get("extracted_fields", {})
     llm_config = state.get("llm_config")
-    findings = _rule_check(fields, text)
+    contract_type = state.get("contract_type", "general")
+    deterministic = RuleEngine(default_registry()).evaluate(text, contract_type)
+    findings = [_rule_match_to_legacy(match, index) for index, match in enumerate(deterministic, 1)]
 
     llm_result = await call_llm_json(
         state.get("prompt_templates", {}).get(
