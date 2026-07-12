@@ -68,7 +68,7 @@ async function run() {
   form.append('合同文件', file.value)
   form.append('合同类型', type.value)
   try {
-    result.value = (await api.post('/reviews', form)).data
+    result.value = (await api.post('/reviews', form, { timeout: 300000 })).data
     reviewProgress.value = 100
     reviewStage.value = reviewStages.length - 1
     activeRisk.value = result.value.risk_findings.find(
@@ -78,7 +78,13 @@ async function run() {
     await focusRisk(activeRisk.value)
     await new Promise((resolve) => window.setTimeout(resolve, 420))
   } catch (error: any) {
-    ElMessage.error(error.response?.data?.detail || '审查失败')
+    if (error.code === 'ECONNABORTED') {
+      ElMessage.error('外部模型响应超时，请稍后重试；合同文件已成功上传')
+    } else if (!error.response) {
+      ElMessage.error('审查服务连接中断，请确认后端服务正在运行')
+    } else {
+      ElMessage.error(error.response?.data?.detail || error.response?.data?.message || '审查失败')
+    }
   } finally {
     window.clearInterval(stageTimer)
     loading.value = false
