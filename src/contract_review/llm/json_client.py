@@ -59,7 +59,7 @@ async def call_llm_json(
     if not (effective_llm_config or {}).get("api_key"):
         active_config = ModelConfigService(
             settings.model_config_data_dir,
-            settings.jwt_secret_key.get_secret_value(),
+            settings.resolve_model_credential_encryption_key(),
         ).resolve_active_runtime_config()
         if active_config is not None:
             effective_llm_config = active_config.model_dump()
@@ -108,7 +108,7 @@ async def call_llm_text(
     if not (effective_llm_config or {}).get("api_key"):
         active_config = ModelConfigService(
             settings.model_config_data_dir,
-            settings.jwt_secret_key.get_secret_value(),
+            settings.resolve_model_credential_encryption_key(),
         ).resolve_active_runtime_config()
         if active_config is not None:
             effective_llm_config = active_config.model_dump()

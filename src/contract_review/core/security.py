@@ -85,11 +85,19 @@ def decode_token(token: str, *, secret: str, expected_type: TokenType) -> dict[s
         signing_input.encode("ascii"),
         hashlib.sha256,
     ).digest()
-    actual_signature = _b64decode(encoded_signature)
+    try:
+        actual_signature = _b64decode(encoded_signature)
+    except Exception as exc:
+        raise TokenError("Invalid token encoding") from exc
     if not hmac.compare_digest(actual_signature, expected_signature):
         raise TokenError("Invalid token signature")
 
-    payload = json.loads(_b64decode(encoded_payload).decode("utf-8"))
+    try:
+        payload = json.loads(_b64decode(encoded_payload).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise TokenError("Invalid token payload") from exc
+    if not isinstance(payload, dict) or not isinstance(payload.get("sub"), str):
+        raise TokenError("Invalid token claims")
     if payload.get("type") != expected_type:
         raise TokenError("Invalid token type")
     if int(payload.get("exp", 0)) < int(datetime.now(timezone.utc).timestamp()):

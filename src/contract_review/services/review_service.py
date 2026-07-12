@@ -67,7 +67,7 @@ class ReviewService:
             export_paths = {key: str(path) for key, path in generated.items()}
             active_model = ModelConfigService(
                 self.settings.model_config_data_dir,
-                self.settings.jwt_secret_key.get_secret_value(),
+                self.settings.resolve_model_credential_encryption_key(),
             ).get_active()
             await asyncio.to_thread(
                 self.history_service.append,

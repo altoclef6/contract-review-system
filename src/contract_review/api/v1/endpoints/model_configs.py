@@ -25,7 +25,7 @@ router = APIRouter()
 def get_model_config_service(settings: Settings = Depends(get_settings)) -> ModelConfigService:
     return ModelConfigService(
         settings.model_config_data_dir,
-        settings.jwt_secret_key.get_secret_value(),
+        settings.resolve_model_credential_encryption_key(),
     )
 
 

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+
+from cryptography.fernet import Fernet, InvalidToken
 
 from contract_review.infrastructure.document_store import JsonDocumentStore
 from contract_review.schemas.model_config import (
@@ -74,7 +77,11 @@ class ModelConfigService:
     def __init__(self, data_dir: Path, secret: str) -> None:
         self.path = data_dir / "model_configs.json"
         self.store = JsonDocumentStore(self.path, "model_configs")
-        self.secret = secret
+        if not secret:
+            raise ModelConfigServiceError("Model credential encryption key is not configured")
+        derived = base64.urlsafe_b64encode(hashlib.sha256(secret.encode("utf-8")).digest())
+        self._fernet = Fernet(derived)
+        self._legacy_secret = secret
 
     def list_providers(self) -> list[ModelProviderInfo]:
         return PROVIDER_INFOS
@@ -185,7 +192,17 @@ class ModelConfigService:
 
     def _load(self) -> list[dict[str, Any]]:
         data = self.store.read([])
-        return data if isinstance(data, list) else []
+        records = data if isinstance(data, list) else []
+        migrated = False
+        for record in records:
+            cipher = record.get("api_key_cipher")
+            if isinstance(cipher, str) and not cipher.startswith("fernet:"):
+                plaintext = self._decode_legacy_secret(cipher)
+                record["api_key_cipher"] = self._encode_secret(plaintext)
+                migrated = True
+        if migrated:
+            self._save(records)
+        return records
 
     def _save(self, records: list[dict[str, Any]]) -> None:
         self.store.write(records)
@@ -205,16 +222,26 @@ class ModelConfigService:
         return f"{value[:4]}...{value[-4:]}"
 
     def _encode_secret(self, value: str) -> str:
-        key = self.secret.encode("utf-8") or b"contract-review"
-        raw = value.encode("utf-8")
-        encrypted = bytes(byte ^ key[index % len(key)] for index, byte in enumerate(raw))
-        return base64.urlsafe_b64encode(encrypted).decode("ascii")
+        return "fernet:" + self._fernet.encrypt(value.encode("utf-8")).decode("ascii")
 
     def _decode_secret(self, value: str) -> str:
-        key = self.secret.encode("utf-8") or b"contract-review"
-        raw = base64.urlsafe_b64decode(value.encode("ascii"))
-        decoded = bytes(byte ^ key[index % len(key)] for index, byte in enumerate(raw))
-        return decoded.decode("utf-8")
+        if not value.startswith("fernet:"):
+            return self._decode_legacy_secret(value)
+        try:
+            return self._fernet.decrypt(value.removeprefix("fernet:").encode("ascii")).decode(
+                "utf-8"
+            )
+        except (InvalidToken, ValueError) as exc:
+            raise ModelConfigServiceError("Stored model credential cannot be decrypted") from exc
+
+    def _decode_legacy_secret(self, value: str) -> str:
+        key = self._legacy_secret.encode("utf-8")
+        try:
+            raw = base64.urlsafe_b64decode(value.encode("ascii"))
+            decoded = bytes(byte ^ key[index % len(key)] for index, byte in enumerate(raw))
+            return decoded.decode("utf-8")
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise ModelConfigServiceError("Stored legacy credential cannot be migrated") from exc
 
     def _now(self) -> str:
         return datetime.now(timezone.utc).isoformat()

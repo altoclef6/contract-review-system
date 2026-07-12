@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     bootstrap_admin_email: str = "admin@example.com"
     bootstrap_admin_password: SecretStr
     bootstrap_admin_name: str = "System Admin"
+    model_credential_encryption_key: SecretStr | None = None
+    postgres_password: SecretStr | None = None
 
     llm_provider: Literal["openai", "openai_compatible", "deepseek"] = "openai_compatible"
     llm_model_name: str = "gpt-4.1-mini"
@@ -73,6 +75,41 @@ class Settings(BaseSettings):
     tessdata_dir: Path | None = None
     ocr_languages: str = "chi_sim+eng"
 
+    @model_validator(mode="after")
+    def validate_deployment_security(self) -> Settings:
+        if self.environment != "prod":
+            return self
+        required = {
+            "JWT_SECRET_KEY": self.jwt_secret_key.get_secret_value(),
+            "BOOTSTRAP_ADMIN_PASSWORD": self.bootstrap_admin_password.get_secret_value(),
+            "DATABASE_URL": self.database_url.get_secret_value(),
+            "POSTGRES_PASSWORD": (
+                self.postgres_password.get_secret_value() if self.postgres_password else ""
+            ),
+            "MODEL_CREDENTIAL_ENCRYPTION_KEY": (
+                self.model_credential_encryption_key.get_secret_value()
+                if self.model_credential_encryption_key
+                else ""
+            ),
+        }
+        missing = [name for name, value in required.items() if not value.strip()]
+        if missing:
+            raise ValueError(f"Production configuration is missing: {', '.join(missing)}")
+        if len(required["JWT_SECRET_KEY"]) < 32:
+            raise ValueError("JWT_SECRET_KEY must contain at least 32 characters in production")
+        if len(required["BOOTSTRAP_ADMIN_PASSWORD"]) < 12:
+            raise ValueError("BOOTSTRAP_ADMIN_PASSWORD is too weak for production")
+        forbidden = {"change-me-in-production", "admin12345!", "contract_review"}
+        if required["JWT_SECRET_KEY"].lower() in forbidden:
+            raise ValueError("JWT_SECRET_KEY uses a forbidden production default")
+        if required["BOOTSTRAP_ADMIN_PASSWORD"].lower() in forbidden:
+            raise ValueError("BOOTSTRAP_ADMIN_PASSWORD uses a forbidden production default")
+        if "contract_review:contract_review@" in required["DATABASE_URL"].lower():
+            raise ValueError("DATABASE_URL uses a forbidden production password")
+        if self.debug:
+            raise ValueError("DEBUG must be disabled in production")
+        return self
+
     @field_validator("allowed_origins", "trusted_hosts", mode="before")
     @classmethod
     def parse_allowed_origins(cls, value: str | list[str]) -> list[str]:
@@ -95,6 +132,13 @@ class Settings(BaseSettings):
         if self.llm_provider == "deepseek":
             return "https://api.deepseek.com/v1"
         return None
+
+    def resolve_model_credential_encryption_key(self) -> str:
+        if self.model_credential_encryption_key is not None:
+            return self.model_credential_encryption_key.get_secret_value()
+        if self.environment == "prod":
+            raise ValueError("MODEL_CREDENTIAL_ENCRYPTION_KEY is required in production")
+        return self.jwt_secret_key.get_secret_value()
 
 
 @lru_cache

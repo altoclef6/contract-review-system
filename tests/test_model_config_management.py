@@ -72,6 +72,9 @@ def test_admin_model_config_lifecycle(tmp_path: Path, monkeypatch) -> None:
 
         settings = get_settings()
         service = ModelConfigService(settings.model_config_data_dir, "test-secret")
+        stored = service.path.read_text(encoding="utf-8")
+        assert "sk-test-secret-value" not in stored
+        assert "fernet:" in stored
         runtime = service.resolve_active_runtime_config()
         assert runtime is not None
         assert runtime.api_key == "sk-test-secret-value"
