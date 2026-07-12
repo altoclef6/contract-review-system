@@ -44,7 +44,7 @@ flowchart LR
 
 ### 方式一：Docker 完整版
 
-前提是电脑安装并启动 Docker Desktop。在项目根目录创建 `.env`，至少修改 `JWT_SECRET_KEY`、`BOOTSTRAP_ADMIN_PASSWORD`，需要 AI 时再填写 `LLM_API_KEY`。
+前提是电脑安装并启动 Docker Desktop。在项目根目录创建 `.env`，并设置 `POSTGRES_PASSWORD`、`JWT_SECRET_KEY`、`BOOTSTRAP_ADMIN_PASSWORD`；需要 AI 时再填写 `LLM_API_KEY`。这些值不要提交到 Git。
 
 ```powershell
 Copy-Item .env.example .env
@@ -84,7 +84,7 @@ pnpm install
 pnpm run dev
 ```
 
-打开 `http://127.0.0.1:5173`。本地默认管理员为 `admin@example.com / Admin12345!`，只用于开发，部署前必须修改。
+打开 `http://127.0.0.1:5173`。管理员邮箱和密码由本地 `.env` 中的 `BOOTSTRAP_ADMIN_EMAIL`、`BOOTSTRAP_ADMIN_PASSWORD` 设置。
 
 ## API Key 配置
 
@@ -94,7 +94,7 @@ pnpm run dev
 
 ```env
 ENABLE_LLM=true
-LLM_API_KEY=你的密钥
+LLM_API_KEY=your-provider-api-key
 LLM_BASE_URL=https://api.deepseek.com/v1
 LLM_MODEL_NAME=deepseek-chat
 ```

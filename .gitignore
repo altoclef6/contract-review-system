@@ -1,13 +1,28 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+venv/
 .venv/
 __pycache__/
+**/__pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .playwright-browsers/
 
-.env
+# Node / frontend build output
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+build/
+frontend/*.tsbuildinfo
 
+# Runtime data and user content
 data/uploads/*
 !data/uploads/.gitkeep
 data/reports/*
@@ -22,8 +37,19 @@ data/notifications/
 data/security/
 runtime-logs/
 demo_assets/
-frontend/node_modules/
-frontend/dist/
-frontend/*.tsbuildinfo
+uploads/
+logs/
+temp/
+tmp/
 
+# Local databases and logs
 *.log
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE / OS files
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store

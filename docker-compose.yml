@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: contract_review
       POSTGRES_USER: contract_review
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-contract_review_change_me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -31,14 +31,14 @@ services:
     environment: &backend-env
       ENVIRONMENT: prod
       DATABASE_ENABLED: "true"
-      DATABASE_URL: postgresql+psycopg://contract_review:${POSTGRES_PASSWORD:-contract_review_change_me}@postgres:5432/contract_review
+      DATABASE_URL: postgresql+psycopg://contract_review:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/contract_review
       REDIS_ENABLED: "true"
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-replace-with-a-long-random-secret}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
-      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-Admin12345!}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD in .env}
       ENABLE_LLM: ${ENABLE_LLM:-true}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
