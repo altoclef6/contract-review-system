@@ -18,7 +18,13 @@ async function submit() {
     await auth.login(email.value, password.value)
     await router.push('/dashboard')
   } catch (error: any) {
-    ElMessage.error(error.response?.data?.message || '登录失败，请检查账号和密码')
+    if (!error.response) {
+      ElMessage.error('无法连接服务器，请先启动后端服务')
+    } else if (error.response.status === 401) {
+      ElMessage.error('账号或密码不正确')
+    } else {
+      ElMessage.error(error.response?.data?.message || '登录失败，请稍后重试')
+    }
   } finally {
     loading.value = false
   }
