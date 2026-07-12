@@ -17,6 +17,9 @@ const loading = ref(false)
 const result = ref<any>()
 const activeRisk = ref<any>()
 const highlightedClause = ref<HTMLElement>()
+const reviewStage = ref(0)
+let stageTimer: number | undefined
+const reviewStages = ['协调者接收合同', '提取者解析全文', '合规 Agent 检索风险', '修订 Agent 生成建议']
 
 const activeLocation = computed<TextLocation | undefined>(() => activeRisk.value?.原文定位)
 const locationStart = computed(() => activeLocation.value?.字符起点 ?? -1)
@@ -37,6 +40,11 @@ const textAfter = computed(() => {
 async function run() {
   if (!file.value) return ElMessage.warning('请选择合同文件')
   loading.value = true
+  reviewStage.value = 0
+  window.clearInterval(stageTimer)
+  stageTimer = window.setInterval(() => {
+    reviewStage.value = Math.min(reviewStage.value + 1, reviewStages.length - 1)
+  }, 1400)
   const form = new FormData()
   form.append('合同文件', file.value)
   form.append('合同类型', type.value)
@@ -50,6 +58,7 @@ async function run() {
   } catch (error: any) {
     ElMessage.error(error.response?.data?.detail || '审查失败')
   } finally {
+    window.clearInterval(stageTimer)
     loading.value = false
   }
 }
@@ -143,4 +152,23 @@ const onChange = (upload: any) => { file.value = upload.raw }
       </article>
     </div>
   </section>
+
+  <Teleport to="body">
+    <Transition name="ritual-fade">
+      <section v-if="loading" class="review-ritual" aria-live="polite">
+        <div class="ritual-scene"></div><div class="ritual-shade"></div>
+        <div class="ritual-content">
+          <span class="ritual-code">CONTRACT / ANALYSIS</span>
+          <h2>审查协同域</h2>
+          <p>{{ reviewStages[reviewStage] }}</p>
+          <div class="ritual-agents">
+            <div v-for="(stage, index) in reviewStages" :key="stage" :class="{ active: index <= reviewStage }">
+              <i>{{ String(index + 1).padStart(2, '0') }}</i><span>{{ stage }}</span>
+            </div>
+          </div>
+          <div class="ritual-progress"><span :style="{ width: `${(reviewStage + 1) * 25}%` }"></span></div>
+        </div>
+      </section>
+    </Transition>
+  </Teleport>
 </template>
