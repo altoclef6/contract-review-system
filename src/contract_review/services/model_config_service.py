@@ -30,7 +30,7 @@ PROVIDER_INFOS: list[ModelProviderInfo] = [
         provider=ModelProvider.deepseek,
         label="DeepSeek",
         default_base_url="https://api.deepseek.com/v1",
-        default_model_name="deepseek-chat",
+        default_model_name="deepseek-v4-pro",
         openai_compatible=True,
     ),
     ModelProviderInfo(

@@ -70,6 +70,7 @@ async def refiner_node(state: ContractReviewState) -> dict:
 """,
         max_chars=12000,
         llm_config=llm_config,
+        agent_role="refinement",
     )
     if isinstance(llm_result, dict) and isinstance(llm_result.get("修改建议"), list):
         ai_suggestions = []

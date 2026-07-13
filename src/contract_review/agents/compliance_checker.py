@@ -273,6 +273,7 @@ async def compliance_checker_node(state: ContractReviewState) -> dict:
 {text}
 """,
         llm_config=llm_config,
+        agent_role="compliance",
     )
     if llm_result:
         findings.extend(_normalize_llm_findings(llm_result, len(findings) + 1))

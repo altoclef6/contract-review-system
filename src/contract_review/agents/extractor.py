@@ -173,6 +173,7 @@ async def extractor_node(state: ContractReviewState) -> dict:
 {text}
 """,
         llm_config=llm_config,
+        agent_role="extraction",
     )
     extracted = _merge_extraction(rule_result, llm_result if isinstance(llm_result, dict) else None)
     trace = state.get("agent_trace", []) + [

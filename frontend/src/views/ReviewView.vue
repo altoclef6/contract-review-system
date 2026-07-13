@@ -450,9 +450,23 @@ function removeFile() {
   --review-radius: 12px;
   position: fixed; z-index: 3000; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(23, 32, 51, 0.46);
 }
-.ritual-scene,
+.ritual-scene { position: absolute; inset: 0; display: block; overflow: hidden; pointer-events: none; }
+.ritual-scene::before,
+.ritual-scene::after {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  opacity: 0.48;
+  background-image:
+    radial-gradient(circle, rgba(147, 197, 253, 0.9) 0 1px, transparent 1.6px),
+    radial-gradient(circle, rgba(37, 99, 235, 0.72) 0 1.4px, transparent 2px);
+  background-position: 20px 28px, 84px 96px;
+  background-size: 132px 132px, 196px 196px;
+  animation: review-particles-drift 18s linear infinite;
+}
+.ritual-scene::after { opacity: 0.28; transform: scale(1.08); animation-duration: 26s; animation-direction: reverse; }
 .ritual-shade { display: none; }
-.ritual-content { width: min(520px, 100%); padding: 28px; border: 1px solid var(--review-border); border-radius: var(--review-radius); color: var(--review-text); background: #fff; box-shadow: 0 20px 50px rgba(23, 32, 51, 0.18); }
+.ritual-content { position: relative; z-index: 1; width: min(520px, 100%); padding: 28px; border: 1px solid var(--review-border); border-radius: var(--review-radius); color: var(--review-text); background: #fff; box-shadow: 0 20px 50px rgba(23, 32, 51, 0.18); }
 .ritual-code { color: var(--review-primary); font-size: 11px; line-height: 18px; font-weight: 700; letter-spacing: 0.08em; }
 .ritual-content h2 { margin: 8px 0 4px; font-size: 22px; line-height: 30px; }
 .ritual-content > p { margin: 0; color: var(--review-muted); font-size: 14px; line-height: 22px; }
@@ -470,6 +484,16 @@ function removeFile() {
 .ritual-fade-leave-active { transition: opacity 0.2s ease; }
 .ritual-fade-enter-from,
 .ritual-fade-leave-to { opacity: 0; }
+
+@keyframes review-particles-drift {
+  from { translate: 0 0; }
+  to { translate: 46px -54px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ritual-scene::before,
+  .ritual-scene::after { animation: none; }
+}
 
 @media (max-width: 1024px) {
   .review-setup { grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; }

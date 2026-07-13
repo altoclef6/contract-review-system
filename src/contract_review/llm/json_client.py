@@ -11,6 +11,7 @@ from contract_review.core.config import get_settings
 from contract_review.core.exceptions import LLMConfigurationError
 from contract_review.core.metrics import metrics_registry
 from contract_review.llm.factory import create_chat_model
+from contract_review.llm.routing import AgentModelRole, route_model_config
 from contract_review.services.model_config_service import ModelConfigService
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ async def call_llm_json(
     *,
     max_chars: int = 16000,
     llm_config: dict[str, Any] | None = None,
+    agent_role: AgentModelRole | None = None,
 ) -> dict[str, Any] | list[Any] | None:
     """Call the configured external LLM and parse a JSON response.
 
@@ -63,6 +65,13 @@ async def call_llm_json(
         ).resolve_active_runtime_config()
         if active_config is not None:
             effective_llm_config = active_config.model_dump()
+
+    effective_llm_config = route_model_config(
+        effective_llm_config,
+        role=agent_role,
+        default_provider=settings.llm_provider,
+        default_model_name=settings.llm_model_name,
+    )
 
     if not (effective_llm_config or {}).get("api_key") and settings.resolve_llm_api_key() is None:
         return None
