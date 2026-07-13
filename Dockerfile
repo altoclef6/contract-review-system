@@ -12,7 +12,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY migrations ./migrations
 COPY src ./src
 COPY docker/backend-entrypoint.sh /usr/local/bin/backend-entrypoint
-RUN chmod +x /usr/local/bin/backend-entrypoint
+RUN addgroup --system --gid 10001 contractreview \
+    && adduser --system --uid 10001 --ingroup contractreview contractreview \
+    && mkdir -p /app/data \
+    && chown -R contractreview:contractreview /app \
+    && chmod +x /usr/local/bin/backend-entrypoint
 
 EXPOSE 8000
+USER contractreview
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)" || exit 1
 CMD ["backend-entrypoint"]

@@ -79,7 +79,7 @@ tests/                     后端自动化测试
 
 ## 快速启动
 
-要求 Python 3.10+、Node.js 22+、pnpm。不要覆盖已有 `.env`。
+要求 Python 3.11+、Node.js 22+、pnpm。不要覆盖已有 `.env`。
 
 ```powershell
 python -m venv .venv

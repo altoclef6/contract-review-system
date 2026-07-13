@@ -1,4 +1,4 @@
-# Runtime baseline: Python >= 3.10
+# Runtime baseline: Python >= 3.11
 
 # Web API
 fastapi>=0.139,<1.0
@@ -47,6 +47,7 @@ celery>=5.5,<6.0
 # Development and tests
 pytest>=8.4,<9.0
 pytest-asyncio>=1.0,<2.0
+pytest-cov>=7.0,<8.0
 ruff>=0.12,<1.0
 mypy>=1.16,<2.0
 
