@@ -87,7 +87,7 @@ async def create_review(
 @router.get("", summary="审查历史", operation_id="审查历史")
 async def list_reviews(
     request: Request,
-    user: UserPublic = Depends(require_permission(Permission.reviews_history)),
+    user: UserPublic = Depends(require_permission(Permission.reviews_run)),
 ) -> list[dict]:
     service = HistoryService(request.app.state.settings.report_dir.parent)
     records = service.list_records()
@@ -100,7 +100,7 @@ async def list_reviews(
 async def get_review(
     request: Request,
     review_id: str,
-    user: UserPublic = Depends(require_permission(Permission.reviews_history)),
+    user: UserPublic = Depends(require_permission(Permission.reviews_run)),
 ) -> dict:
     record = HistoryService(request.app.state.settings.report_dir.parent).get(review_id)
     if record is None:
@@ -118,7 +118,7 @@ async def download_review(
     request: Request,
     review_id: str,
     file_type: str = Query(default="pdf", pattern="^(json|docx|pdf|markdown|xlsx)$"),
-    user: UserPublic = Depends(require_permission(Permission.reviews_history)),
+    user: UserPublic = Depends(require_permission(Permission.reviews_run)),
 ) -> FileResponse:
     record = HistoryService(request.app.state.settings.report_dir.parent).get(review_id)
     if record is None:

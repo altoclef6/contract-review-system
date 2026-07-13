@@ -40,7 +40,6 @@ ROLE_PERMISSIONS: dict[UserRole, set[Permission]] = {
         Permission.contracts_read,
         Permission.contracts_write,
         Permission.reviews_run,
-        Permission.reviews_history,
         Permission.notifications_read,
     },
 }
