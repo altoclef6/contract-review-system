@@ -1,0 +1,47 @@
+[
+  {
+    "document_id": "TEST-GUIDELINE-SOFTWARE-001",
+    "title": "软件合同审查测试指南（测试数据）",
+    "source_type": "review_guideline",
+    "jurisdiction": "TEST",
+    "issuing_authority": "项目测试维护者",
+    "version": "test-1.0",
+    "effective_date": "2026-01-01",
+    "expiry_date": null,
+    "status": "effective",
+    "article_number": "TEST-ACCEPTANCE",
+    "content": "测试数据：软件项目验收条款宜描述验收期限、验收标准和异议反馈流程。该条目不是法律法规，也不是完整法律数据库。",
+    "source_url": null,
+    "checksum": "TEST-DATA-NOT-A-LEGAL-SOURCE"
+  },
+  {
+    "document_id": "TEST-POLICY-DATA-001",
+    "title": "企业数据处理测试制度（测试数据）",
+    "source_type": "enterprise_policy",
+    "jurisdiction": "TEST",
+    "issuing_authority": "虚构企业制度部门",
+    "version": "test-1.0",
+    "effective_date": "2026-01-01",
+    "expiry_date": null,
+    "status": "effective",
+    "article_number": "TEST-DATA-01",
+    "content": "测试数据：涉及数据处理的合同宜说明数据保存期限、删除机制、访问权限和安全事件通知。企业制度不等同于国家法律强制要求。",
+    "source_url": null,
+    "checksum": "TEST-DATA-NOT-A-LEGAL-SOURCE-2"
+  },
+  {
+    "document_id": "TEST-EXPIRED-001",
+    "title": "已失效测试指南",
+    "source_type": "review_guideline",
+    "jurisdiction": "TEST",
+    "issuing_authority": "项目测试维护者",
+    "version": "test-0.1",
+    "effective_date": "2020-01-01",
+    "expiry_date": "2021-01-01",
+    "status": "expired",
+    "article_number": "OLD-01",
+    "content": "测试数据：数据保存期限。该失效条目不得被默认检索。",
+    "source_url": null,
+    "checksum": "TEST-EXPIRED-NOT-A-LEGAL-SOURCE"
+  }
+]
