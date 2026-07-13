@@ -7,6 +7,14 @@ from contract_review.core.config import get_settings
 from contract_review.main import create_app
 
 
+def _auth_headers(client: TestClient) -> dict[str, str]:
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@example.com", "password": "Admin12345!"},
+    )
+    return {"Authorization": f"Bearer {response.json()['data']['access_token']}"}
+
+
 def _make_contract(path: Path) -> None:
     document = Document()
     document.add_heading("采购合同", level=1)
@@ -26,6 +34,7 @@ def test_review_docx_flow(tmp_path: Path, monkeypatch) -> None:
     _make_contract(contract_path)
 
     with TestClient(create_app()) as client:
+        headers = _auth_headers(client)
         with contract_path.open("rb") as file_obj:
             response = client.post(
                 "/api/v1/reviews",
@@ -36,6 +45,7 @@ def test_review_docx_flow(tmp_path: Path, monkeypatch) -> None:
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     )
                 },
+                headers=headers,
             )
 
     payload = response.json()
@@ -61,6 +71,7 @@ def test_review_history_and_download(tmp_path: Path, monkeypatch) -> None:
     _make_contract(contract_path)
 
     with TestClient(create_app()) as client:
+        headers = _auth_headers(client)
         with contract_path.open("rb") as file_obj:
             create_response = client.post(
                 "/api/v1/reviews",
@@ -71,13 +82,22 @@ def test_review_history_and_download(tmp_path: Path, monkeypatch) -> None:
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     )
                 },
+                headers=headers,
             )
         review_id = create_response.json()["review_id"]
-        history_response = client.get("/api/v1/reviews")
-        report_response = client.get(f"/api/v1/reviews/{review_id}")
-        download_response = client.get(f"/api/v1/reviews/{review_id}/download?file_type=json")
+        history_response = client.get("/api/v1/reviews", headers=headers)
+        report_response = client.get(f"/api/v1/reviews/{review_id}", headers=headers)
+        download_response = client.get(
+            f"/api/v1/reviews/{review_id}/download?file_type=json", headers=headers
+        )
 
     assert history_response.status_code == 200
     assert any(item["review_id"] == review_id for item in history_response.json())
     assert report_response.status_code == 200
     assert download_response.status_code == 200
+
+
+def test_review_upload_and_download_require_authentication() -> None:
+    with TestClient(create_app()) as client:
+        assert client.get("/api/v1/reviews").status_code == 401
+        assert client.get("/api/v1/reviews/unknown/download?file_type=json").status_code == 401

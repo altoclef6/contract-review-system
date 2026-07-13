@@ -99,6 +99,7 @@ def build_history_item(
     prompt_snapshot: dict[str, str] | None = None,
     token_usage: int | None = None,
     source_file_path: str | None = None,
+    created_by: str | None = None,
 ) -> dict[str, Any]:
     final_report = final_report or {}
     risk_score = final_report.get("风险评分", {})
@@ -113,6 +114,7 @@ def build_history_item(
         "prompt_snapshot": prompt_snapshot or {},
         "token_usage": token_usage,
         "source_file_path": source_file_path,
+        "created_by": created_by,
         "overall_risk_level": final_report.get("总体风险等级"),
         "risk_score": risk_score.get("风险分"),
         "safe_score": risk_score.get("安全分"),

@@ -1,3 +1,4 @@
+import zipfile
 from pathlib import Path
 
 import fitz
@@ -35,6 +36,24 @@ def test_file_signature_rejects_disguised_executable(tmp_path: Path) -> None:
     fake_pdf.write_bytes(b"MZ\x90\x00malicious")
     with pytest.raises(UnsafeUploadError):
         validate_file_signature(fake_pdf)
+
+
+def test_docx_rejects_archive_path_traversal(tmp_path: Path) -> None:
+    malicious = tmp_path / "contract.docx"
+    with zipfile.ZipFile(malicious, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types />")
+        archive.writestr("word/document.xml", "<document />")
+        archive.writestr("../outside.exe", b"payload")
+    with pytest.raises(UnsafeUploadError, match="不安全路径"):
+        validate_file_signature(malicious)
+
+
+def test_docx_rejects_non_office_zip(tmp_path: Path) -> None:
+    fake_docx = tmp_path / "contract.docx"
+    with zipfile.ZipFile(fake_docx, "w") as archive:
+        archive.writestr("payload.exe", b"payload")
+    with pytest.raises(UnsafeUploadError, match="有效的 DOCX"):
+        validate_file_signature(fake_docx)
 
 
 def test_report_exports_markdown_and_excel(tmp_path: Path) -> None:

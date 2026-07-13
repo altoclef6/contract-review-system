@@ -3,9 +3,22 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 
+from contract_review.api.dependencies.auth import require_permission
+from contract_review.schemas.auth import Permission, UserPublic, UserRole
 from contract_review.schemas.review import ReviewResponse
 from contract_review.services.history_service import HistoryService
 from contract_review.services.review_service import ReviewService
@@ -41,6 +54,7 @@ async def create_review(
     x_llm_provider: str | None = Header(default=None, include_in_schema=False),
     x_llm_model: str | None = Header(default=None, include_in_schema=False),
     x_llm_base_url: str | None = Header(default=None, include_in_schema=False),
+    user: UserPublic = Depends(require_permission(Permission.reviews_run)),
 ) -> ReviewResponse:
     llm_config = {
         "api_key": x_llm_api_key,
@@ -66,21 +80,34 @@ async def create_review(
         content_type=合同文件.content_type,
         llm_config=llm_config,
         contract_type=合同类型,
+        actor_id=user.id,
     )
 
 
 @router.get("", summary="审查历史", operation_id="审查历史")
-async def list_reviews(request: Request) -> list[dict]:
+async def list_reviews(
+    request: Request,
+    user: UserPublic = Depends(require_permission(Permission.reviews_history)),
+) -> list[dict]:
     service = HistoryService(request.app.state.settings.report_dir.parent)
-    return service.list_records()
+    records = service.list_records()
+    if user.role == UserRole.admin:
+        return records
+    return [record for record in records if record.get("created_by") == user.id]
 
 
 @router.get("/{review_id}", summary="查看审查报告", operation_id="查看审查报告")
-async def get_review(request: Request, review_id: str) -> dict:
+async def get_review(
+    request: Request,
+    review_id: str,
+    user: UserPublic = Depends(require_permission(Permission.reviews_history)),
+) -> dict:
     record = HistoryService(request.app.state.settings.report_dir.parent).get(review_id)
     if record is None:
         raise HTTPException(status_code=404, detail="未找到审查记录")
     json_path = record.get("exports", {}).get("json") or record.get("report_path")
+    if user.role != UserRole.admin and record.get("created_by") != user.id:
+        raise HTTPException(status_code=404, detail="未找到审查记录")
     if not json_path or not Path(json_path).exists():
         raise HTTPException(status_code=404, detail="报告文件不存在")
     return json.loads(Path(json_path).read_text(encoding="utf-8"))
@@ -91,9 +118,12 @@ async def download_review(
     request: Request,
     review_id: str,
     file_type: str = Query(default="pdf", pattern="^(json|docx|pdf|markdown|xlsx)$"),
+    user: UserPublic = Depends(require_permission(Permission.reviews_history)),
 ) -> FileResponse:
     record = HistoryService(request.app.state.settings.report_dir.parent).get(review_id)
     if record is None:
+        raise HTTPException(status_code=404, detail="未找到审查记录")
+    if user.role != UserRole.admin and record.get("created_by") != user.id:
         raise HTTPException(status_code=404, detail="未找到审查记录")
     file_path = record.get("exports", {}).get(file_type)
     if not file_path or not Path(file_path).exists():

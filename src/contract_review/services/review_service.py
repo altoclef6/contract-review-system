@@ -31,6 +31,7 @@ class ReviewService:
         content_type: str | None,
         llm_config: dict[str, Any] | None = None,
         contract_type: str = "general",
+        actor_id: str | None = None,
     ) -> ReviewResponse:
         review_id = generate_review_id()
         started_at = perf_counter()
@@ -83,6 +84,7 @@ class ReviewService:
                     model_name=active_model.model_name if active_model else None,
                     prompt_snapshot=prompt_templates,
                     source_file_path=str(file_path),
+                    created_by=actor_id,
                 ),
             )
 
