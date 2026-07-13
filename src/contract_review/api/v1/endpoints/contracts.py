@@ -21,6 +21,8 @@ from contract_review.schemas.contract_management import (
     ContractVersion,
     ContractVersionCreate,
     SortOrder,
+    VersionCompareRequest,
+    VersionComparison,
 )
 from contract_review.services.audit_service import AuditService
 from contract_review.services.contract_service import ContractService, ContractServiceError
@@ -221,3 +223,24 @@ async def list_contract_versions(
         return api_success(contracts.list_versions(contract_id))
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{contract_id}/versions/compare",
+    response_model=ApiResponse[VersionComparison],
+    summary="比较合同版本并映射历史风险",
+)
+async def compare_contract_versions(
+    contract_id: str,
+    payload: VersionCompareRequest,
+    user: UserPublic = Depends(require_permission(Permission.contracts_read)),
+    contracts: ContractService = Depends(get_contract_service),
+    audit: AuditService = Depends(get_audit_service),
+) -> ApiResponse[VersionComparison]:
+    try:
+        contracts.require_access(contract_id, actor_id=user.id, actor_role=user.role.value)
+        comparison = contracts.compare_versions(contract_id, payload)
+    except ContractServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    audit.log_operation(actor_id=user.id, action="contracts.version.compare", target=contract_id)
+    return api_success(comparison)

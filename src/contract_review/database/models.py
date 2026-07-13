@@ -77,6 +77,11 @@ class ContractVersionModel(Base, TimestampMixin):
     file_size: Mapped[int | None] = mapped_column(Integer)
     text_content: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    file_hash: Mapped[str | None] = mapped_column(String(64), index=True)
+    parent_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("contract_versions.id"), index=True
+    )
+    version_type: Mapped[str] = mapped_column(String(30), default="original", index=True)
 
 
 class ReviewModel(Base, TimestampMixin):

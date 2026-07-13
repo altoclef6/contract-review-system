@@ -34,6 +34,8 @@ class ContractCreate(BaseModel):
     file_name: str | None = Field(default=None, max_length=260)
     description: str | None = Field(default=None, max_length=1000)
     expires_at: datetime | None = None
+    file_hash: str | None = Field(default=None, pattern="^[a-f0-9]{64}$")
+    text_content: str | None = None
 
 
 class ContractUpdate(BaseModel):
@@ -50,6 +52,10 @@ class ContractVersionCreate(BaseModel):
     file_name: str = Field(min_length=1, max_length=260)
     change_note: str | None = Field(default=None, max_length=1000)
     review_id: str | None = Field(default=None, max_length=120)
+    file_hash: str = Field(pattern="^[a-f0-9]{64}$")
+    parent_version_id: str | None = Field(default=None, max_length=120)
+    text_content: str | None = None
+    version_type: Literal["original", "modified", "re_review", "final"] = "modified"
 
 
 class ContractVersion(BaseModel):
@@ -60,6 +66,40 @@ class ContractVersion(BaseModel):
     review_id: str | None = None
     created_at: datetime
     created_by: str
+    file_hash: str | None = None
+    parent_version_id: str | None = None
+    text_content: str | None = Field(default=None, exclude=True)
+    version_type: Literal["original", "modified", "re_review", "final"] = "original"
+
+
+class ClauseDiff(BaseModel):
+    operation: Literal["added", "deleted", "unchanged"]
+    text: str
+
+
+class RiskRemediationMapping(BaseModel):
+    risk_id: str
+    status: Literal["unresolved", "partially_resolved", "resolved", "newly_introduced"]
+    old_text: str
+    new_text: str | None = None
+
+
+class VersionComparison(BaseModel):
+    from_version_id: str
+    to_version_id: str
+    clause_diffs: list[ClauseDiff]
+    risk_mappings: list[RiskRemediationMapping] = Field(default_factory=list)
+
+
+class VersionRiskInput(BaseModel):
+    risk_id: str
+    contract_text: str
+
+
+class VersionCompareRequest(BaseModel):
+    from_version_id: str
+    to_version_id: str
+    old_risks: list[VersionRiskInput] = Field(default_factory=list)
 
 
 class ContractRecord(BaseModel):

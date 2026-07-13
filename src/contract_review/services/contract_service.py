@@ -18,7 +18,10 @@ from contract_review.schemas.contract_management import (
     ContractVersion,
     ContractVersionCreate,
     SortOrder,
+    VersionCompareRequest,
+    VersionComparison,
 )
+from contract_review.services.version_comparison_service import VersionComparisonService
 
 
 class ContractServiceError(ValueError):
@@ -43,6 +46,10 @@ class ContractService:
                 review_id=None,
                 actor_id=actor_id,
                 created_at=now,
+                file_hash=payload.file_hash,
+                parent_version_id=None,
+                text_content=payload.text_content,
+                version_type="original",
             )
             record = {
                 "id": f"contract_{uuid4().hex}",
@@ -190,6 +197,11 @@ class ContractService:
                 review_id=payload.review_id,
                 actor_id=actor_id,
                 created_at=self._now(),
+                file_hash=payload.file_hash,
+                parent_version_id=payload.parent_version_id
+                or (versions[-1]["id"] if versions else None),
+                text_content=payload.text_content,
+                version_type=payload.version_type,
             )
             versions.append(version)
             record["file_name"] = payload.file_name
@@ -201,6 +213,24 @@ class ContractService:
     def list_versions(self, contract_id: str) -> list[ContractVersion]:
         record = self._find(contract_id)
         return [ContractVersion.model_validate(item) for item in record.get("versions", [])]
+
+    def compare_versions(
+        self, contract_id: str, payload: VersionCompareRequest
+    ) -> VersionComparison:
+        record = self._find(contract_id)
+        versions = {item["id"]: item for item in record.get("versions", [])}
+        try:
+            old_version = versions[payload.from_version_id]
+            new_version = versions[payload.to_version_id]
+        except KeyError as exc:
+            raise ContractServiceError("合同版本不存在") from exc
+        return VersionComparisonService().compare(
+            from_version_id=payload.from_version_id,
+            to_version_id=payload.to_version_id,
+            old_text=old_version.get("text_content") or "",
+            new_text=new_version.get("text_content") or "",
+            old_risks=[item.model_dump() for item in payload.old_risks],
+        )
 
     def _set_fields(
         self,
@@ -259,6 +289,10 @@ class ContractService:
         review_id: str | None,
         actor_id: str,
         created_at: str,
+        file_hash: str | None,
+        parent_version_id: str | None,
+        text_content: str | None,
+        version_type: str,
     ) -> dict[str, Any]:
         return {
             "id": f"version_{uuid4().hex}",
@@ -268,6 +302,10 @@ class ContractService:
             "review_id": review_id,
             "created_at": created_at,
             "created_by": actor_id,
+            "file_hash": file_hash,
+            "parent_version_id": parent_version_id,
+            "text_content": text_content,
+            "version_type": version_type,
         }
 
     def _normalize_tags(self, tags: list[str]) -> list[str]:

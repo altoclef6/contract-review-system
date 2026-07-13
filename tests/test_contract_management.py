@@ -71,14 +71,31 @@ def test_contract_lifecycle_and_versions(tmp_path: Path, monkeypatch) -> None:
                 "file_name": "purchase-v2.docx",
                 "change_note": "补充付款节点",
                 "review_id": "review_demo",
+                "file_hash": "b" * 64,
+                "text_content": "第一条 付款节点调整为验收后十日内。",
+                "version_type": "modified",
             },
         )
         assert version_response.status_code == 201
         assert version_response.json()["data"]["version_no"] == 2
+        assert version_response.json()["data"]["file_hash"] == "b" * 64
+        assert version_response.json()["data"]["parent_version_id"] == contract["versions"][0]["id"]
 
         versions_response = client.get(f"/api/v1/contracts/{contract_id}/versions", headers=headers)
         assert versions_response.status_code == 200
         assert len(versions_response.json()["data"]) == 2
+
+        compare_response = client.post(
+            f"/api/v1/contracts/{contract_id}/versions/compare",
+            headers=headers,
+            json={
+                "from_version_id": contract["versions"][0]["id"],
+                "to_version_id": version_response.json()["data"]["id"],
+                "old_risks": [],
+            },
+        )
+        assert compare_response.status_code == 200
+        assert compare_response.json()["data"]["to_version_id"] == version_response.json()["data"]["id"]
 
         archive_response = client.post(f"/api/v1/contracts/{contract_id}/archive", headers=headers)
         assert archive_response.status_code == 200
