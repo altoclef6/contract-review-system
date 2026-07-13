@@ -36,9 +36,6 @@ async function submit() {
     <div class="immersive-scene" aria-hidden="true">
       <div class="scene-image"></div>
       <div class="scene-vignette"></div>
-      <div class="scene-orbit orbit-one"></div>
-      <div class="scene-orbit orbit-two"></div>
-      <i v-for="index in 12" :key="index" :class="`scene-particle particle-${index}`"></i>
     </div>
 
     <header class="immersive-brand">
