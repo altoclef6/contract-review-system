@@ -1,0 +1,48 @@
+:root {
+  --app-bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-soft: #f8fafc;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #eff6ff;
+  --text-primary: #172033;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --border: #e5eaf2;
+  --border-strong: #d7deea;
+  --risk-critical: #991b1b;
+  --risk-high: #dc2626;
+  --risk-medium: #d97706;
+  --risk-low: #16a34a;
+  --success-soft: #f0fdf4;
+  --warning-soft: #fffbeb;
+  --danger-soft: #fef2f2;
+  --font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-title: 18px;
+  --font-size-page: 26px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-card: 0 2px 10px rgba(23, 32, 51, 0.05);
+  --shadow-float: 0 12px 32px rgba(23, 32, 51, 0.12);
+  --sidebar-width: 248px;
+  --sidebar-collapsed-width: 72px;
+  --header-height: 72px;
+  --page-max-width: 1440px;
+  --page-padding: 32px;
+  --control-height: 42px;
+  --transition-fast: 160ms ease;
+}
+
+@media (max-width: 1024px) {
+  :root { --page-padding: 24px; }
+}
+
+@media (max-width: 640px) {
+  :root { --page-padding: 16px; --header-height: 64px; }
+}

@@ -23,6 +23,10 @@ class Permission(StrEnum):
     notifications_read = "notifications:read"
     prompts_manage = "prompts:manage"
     models_manage = "models:manage"
+    rules_read = "rules:read"
+    rules_manage = "rules:manage"
+    knowledge_read = "knowledge:read"
+    knowledge_manage = "knowledge:manage"
 
 
 ROLE_PERMISSIONS: dict[UserRole, set[Permission]] = {
@@ -35,12 +39,18 @@ ROLE_PERMISSIONS: dict[UserRole, set[Permission]] = {
         Permission.workflows_approve,
         Permission.notifications_read,
         Permission.prompts_manage,
+        Permission.rules_read,
+        Permission.rules_manage,
+        Permission.knowledge_read,
+        Permission.knowledge_manage,
     },
     UserRole.employee: {
         Permission.contracts_read,
         Permission.contracts_write,
         Permission.reviews_run,
         Permission.notifications_read,
+        Permission.rules_read,
+        Permission.knowledge_read,
     },
 }
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, Literal, TypedDict
 
 from langchain_core.messages import BaseMessage
@@ -26,3 +27,10 @@ class ContractReviewState(TypedDict, total=False):
     messages: list[BaseMessage]
     next_step: Literal["extractor", "finish"]
     errors: list[str]
+    stage_callback: Callable[[str], None]
+
+
+def emit_stage(state: ContractReviewState, stage: str) -> None:
+    callback = state.get("stage_callback")
+    if callable(callback):
+        callback(stage)

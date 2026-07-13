@@ -3,11 +3,12 @@ from __future__ import annotations
 from time import perf_counter
 from typing import Any
 
-from contract_review.graph.state import ContractReviewState
+from contract_review.graph.state import ContractReviewState, emit_stage
 from contract_review.schemas.agent import NodeTelemetry, ValidatorOutput, utcnow
 
 
 async def validator_node(state: ContractReviewState) -> dict:
+    emit_stage(state, "VALIDATING_RESULT")
     started_at = utcnow()
     started = perf_counter()
     seen: set[tuple[str, str]] = set()

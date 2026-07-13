@@ -55,7 +55,7 @@ async def call_llm_json(
     here and callers can fall back to deterministic rule-based logic.
     """
     settings = get_settings()
-    if not settings.enable_llm:
+    if not settings.enable_llm or (llm_config or {}).get("disabled") is True:
         return None
     effective_llm_config = llm_config
     if not (effective_llm_config or {}).get("api_key"):
@@ -111,7 +111,7 @@ async def call_llm_text(
     llm_config: dict[str, Any] | None = None,
 ) -> str | None:
     settings = get_settings()
-    if not settings.enable_llm:
+    if not settings.enable_llm or (llm_config or {}).get("disabled") is True:
         return None
     effective_llm_config = llm_config
     if not (effective_llm_config or {}).get("api_key"):

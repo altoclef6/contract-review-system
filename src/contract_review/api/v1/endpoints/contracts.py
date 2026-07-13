@@ -1,20 +1,38 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import hashlib
+from pathlib import Path
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.responses import FileResponse
 
 from contract_review.api.dependencies.auth import (
     get_audit_service,
     get_current_user,
+    get_user_service,
     require_permission,
 )
 from contract_review.core.config import Settings, get_settings
 from contract_review.schemas.api_response import ApiResponse, api_success
 from contract_review.schemas.auth import Permission, UserPublic
 from contract_review.schemas.contract_management import (
+    ContractAuditEntry,
     ContractCategory,
     ContractCreate,
+    ContractDetail,
     ContractListResponse,
     ContractRecord,
+    ContractReviewSummary,
     ContractSortBy,
     ContractStatus,
     ContractUpdate,
@@ -24,8 +42,13 @@ from contract_review.schemas.contract_management import (
     VersionCompareRequest,
     VersionComparison,
 )
+from contract_review.schemas.review_task import ReviewTaskCreate, ReviewTaskRecord
 from contract_review.services.audit_service import AuditService
 from contract_review.services.contract_service import ContractService, ContractServiceError
+from contract_review.services.history_service import HistoryService
+from contract_review.services.review_task_service import ReviewTaskService
+from contract_review.services.user_service import UserService
+from contract_review.utils.file_utils import sanitize_filename, save_upload_file
 
 router = APIRouter()
 
@@ -48,11 +71,12 @@ async def create_contract(
 ) -> ApiResponse[ContractRecord]:
     record = contracts.create_contract(payload=payload, actor_id=user.id)
     audit.log_operation(actor_id=user.id, action="contracts.create", target=record.id)
-    return api_success(record, "合同已创建")
+    return api_success(record.model_copy(update={"owner_name": user.full_name}), "合同已创建")
 
 
 @router.get("", response_model=ApiResponse[ContractListResponse], summary="合同列表")
 async def list_contracts(
+    request: Request,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     search: str | None = Query(default=None, max_length=100),
@@ -62,9 +86,13 @@ async def list_contracts(
     sort_by: ContractSortBy = Query(default="updated_at"),
     sort_order: SortOrder = Query(default="desc"),
     include_deleted: bool = False,
+    risk_level: str | None = Query(default=None, max_length=30),
     user: UserPublic = Depends(require_permission(Permission.contracts_read)),
     contracts: ContractService = Depends(get_contract_service),
+    users: UserService = Depends(get_user_service),
 ) -> ApiResponse[ContractListResponse]:
+    owner_names = {item.id: item.full_name for item in users.list_users()}
+    review_records = HistoryService(request.app.state.settings.report_dir.parent).list_records()
     data = contracts.list_contracts(
         page=page,
         page_size=page_size,
@@ -75,6 +103,9 @@ async def list_contracts(
         sort_by=sort_by,
         sort_order=sort_order,
         include_deleted=include_deleted,
+        risk_level=risk_level,
+        review_records=review_records,
+        owner_names=owner_names,
         actor_id=user.id,
         actor_role=user.role.value,
     )
@@ -84,12 +115,22 @@ async def list_contracts(
 @router.get("/{contract_id}", response_model=ApiResponse[ContractRecord], summary="合同详情")
 async def get_contract(
     contract_id: str,
+    request: Request,
     user: UserPublic = Depends(require_permission(Permission.contracts_read)),
     contracts: ContractService = Depends(get_contract_service),
+    users: UserService = Depends(get_user_service),
 ) -> ApiResponse[ContractRecord]:
     try:
         contracts.require_access(contract_id, actor_id=user.id, actor_role=user.role.value)
-        return api_success(contracts.get_contract(contract_id))
+        owner_names = {item.id: item.full_name for item in users.list_users()}
+        records = HistoryService(request.app.state.settings.report_dir.parent).list_records()
+        return api_success(
+            contracts.get_contract_enriched(
+                contract_id,
+                review_records=records,
+                owner_names=owner_names,
+            )
+        )
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
@@ -223,6 +264,209 @@ async def list_contract_versions(
         return api_success(contracts.list_versions(contract_id))
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get(
+    "/{contract_id}/overview",
+    response_model=ApiResponse[ContractDetail],
+    summary="合同详情聚合",
+)
+async def get_contract_overview(
+    contract_id: str,
+    request: Request,
+    user: UserPublic = Depends(require_permission(Permission.contracts_read)),
+    contracts: ContractService = Depends(get_contract_service),
+    users: UserService = Depends(get_user_service),
+    audit: AuditService = Depends(get_audit_service),
+) -> ApiResponse[ContractDetail]:
+    try:
+        contracts.require_access(contract_id, actor_id=user.id, actor_role=user.role.value)
+        all_reviews = HistoryService(request.app.state.settings.report_dir.parent).list_records()
+        linked_reviews = [item for item in all_reviews if item.get("contract_id") == contract_id]
+        owner_names = {item.id: item.full_name for item in users.list_users()}
+        contract = contracts.get_contract_enriched(
+            contract_id,
+            review_records=linked_reviews,
+            owner_names=owner_names,
+        )
+    except ContractServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="合同不可访问") from exc
+
+    def review_summary(item: dict) -> ContractReviewSummary:
+        counts = item.get("risk_counts")
+        count = sum(int(value) for value in counts.values()) if isinstance(counts, dict) else None
+        return ContractReviewSummary(
+            review_id=str(item.get("review_id")),
+            created_at=item.get("created_at"),
+            status="completed",
+            risk_level=item.get("overall_risk_level"),
+            risk_count=count,
+            duration_ms=item.get("duration_ms"),
+            report_available=bool(item.get("report_path") or item.get("exports")),
+        )
+
+    summaries = [review_summary(item) for item in linked_reviews]
+    audit_entries = [ContractAuditEntry.model_validate(item) for item in audit.list_operations(target=contract_id)]
+    return api_success(
+        ContractDetail(
+            contract=contract,
+            recent_reviews=summaries[:5],
+            reports=[item for item in summaries if item.report_available],
+            audit_logs=audit_entries,
+        )
+    )
+
+
+@router.post(
+    "/{contract_id}/versions/upload",
+    response_model=ApiResponse[ContractVersion],
+    status_code=status.HTTP_201_CREATED,
+    summary="安全上传合同新版本",
+)
+async def upload_contract_version(
+    contract_id: str,
+    request: Request,
+    contract_file: UploadFile = File(...),
+    change_note: str | None = Form(default=None, max_length=1000),
+    version_type: str = Form(default="modified", pattern="^(original|modified|re_review|final)$"),
+    user: UserPublic = Depends(require_permission(Permission.contracts_write)),
+    contracts: ContractService = Depends(get_contract_service),
+    audit: AuditService = Depends(get_audit_service),
+) -> ApiResponse[ContractVersion]:
+    try:
+        contracts.require_access(contract_id, actor_id=user.id, actor_role=user.role.value)
+    except ContractServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="合同不可访问") from exc
+    original_name = contract_file.filename or "contract"
+    settings = request.app.state.settings
+    contract_upload_dir = settings.upload_dir / "contracts" / contract_id
+    saved_path = await save_upload_file(
+        file=contract_file,
+        upload_dir=contract_upload_dir,
+        max_size_mb=settings.max_upload_size_mb,
+    )
+    try:
+        digest = hashlib.sha256(saved_path.read_bytes()).hexdigest()
+        payload = ContractVersionCreate(
+            file_name=original_name,
+            change_note=change_note,
+            file_hash=digest,
+            version_type=version_type,
+        )
+        version = contracts.add_version(
+            contract_id=contract_id,
+            payload=payload,
+            actor_id=user.id,
+            file_path=str(saved_path),
+            content_type=contract_file.content_type,
+            file_size=saved_path.stat().st_size,
+            parse_status="unavailable",
+        )
+    except Exception:
+        saved_path.unlink(missing_ok=True)
+        raise
+    audit.log_operation(
+        actor_id=user.id,
+        action="contracts.version.upload",
+        target=contract_id,
+        metadata={"version_id": version.id, "file_size": version.file_size},
+    )
+    return api_success(version, "合同新版本已上传")
+
+
+@router.get(
+    "/{contract_id}/versions/{version_id}/download",
+    response_class=FileResponse,
+    summary="下载合同版本原文件",
+)
+async def download_contract_version(
+    contract_id: str,
+    version_id: str,
+    request: Request,
+    user: UserPublic = Depends(require_permission(Permission.contracts_read)),
+    contracts: ContractService = Depends(get_contract_service),
+    audit: AuditService = Depends(get_audit_service),
+) -> FileResponse:
+    try:
+        contracts.require_access(contract_id, actor_id=user.id, actor_role=user.role.value)
+        version = contracts.get_version(contract_id, version_id)
+    except ContractServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="合同文件不可访问") from exc
+    if not version.file_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="合同文件不可访问")
+    path = Path(version.file_path).resolve()
+    allowed_root = request.app.state.settings.upload_dir.resolve()
+    if not path.is_relative_to(allowed_root) or not path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="合同文件不可访问")
+    audit.log_operation(
+        actor_id=user.id,
+        action="contracts.version.download",
+        target=contract_id,
+        metadata={"version_id": version_id},
+    )
+    return FileResponse(
+        path,
+        media_type=version.content_type or "application/octet-stream",
+        filename=sanitize_filename(version.file_name),
+    )
+
+
+@router.post(
+    "/{contract_id}/versions/{version_id}/review",
+    response_model=ApiResponse[ReviewTaskRecord],
+    summary="发起合同版本审查",
+)
+async def review_contract_version(
+    contract_id: str,
+    version_id: str,
+    request: Request,
+    user: UserPublic = Depends(require_permission(Permission.reviews_run)),
+    contracts: ContractService = Depends(get_contract_service),
+    audit: AuditService = Depends(get_audit_service),
+) -> ApiResponse[ReviewTaskRecord]:
+    try:
+        contracts.require_access(contract_id, actor_id=user.id, actor_role=user.role.value)
+        contract = contracts.get_contract(contract_id)
+        version = contracts.get_version(contract_id, version_id)
+    except ContractServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="合同文件不可访问") from exc
+    if not version.file_path:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="当前版本没有可审查的原文件")
+    path = Path(version.file_path).resolve()
+    allowed_root = request.app.state.settings.upload_dir.resolve()
+    if not path.is_relative_to(allowed_root) or not path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="合同文件不可访问")
+    task_service = ReviewTaskService(
+        request.app.state.settings,
+        graph=request.app.state.contract_review_graph,
+    )
+    task = task_service.create_task(
+        ReviewTaskCreate(
+            contract_id=contract_id,
+            contract_version_id=version_id,
+            contract_type=contract.category.value,
+            file_path=str(path),
+            original_file_name=version.file_name,
+            content_type=version.content_type,
+        ),
+        actor_id=user.id,
+    )
+    task = task_service.enqueue_or_run(task.task_id)
+    review_id = task.result_summary.get("review_id")
+    if review_id:
+        contracts.set_version_review(
+            contract_id=contract_id,
+            version_id=version_id,
+            review_id=str(review_id),
+            actor_id=user.id,
+        )
+    audit.log_operation(
+        actor_id=user.id,
+        action="contracts.review.start",
+        target=contract_id,
+        metadata={"version_id": version_id, "task_id": task.task_id},
+    )
+    return api_success(task, "审查任务已创建")
 
 
 @router.post(

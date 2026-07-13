@@ -38,6 +38,10 @@ data/chats/
 data/workflows/
 data/notifications/
 data/security/
+data/review-tasks/
+data/rule-center/
+data/knowledge-center/
+data/risk-feedback/
 runtime-logs/
 demo_assets/
 uploads/

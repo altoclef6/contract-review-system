@@ -4,10 +4,12 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from contract_review.graph.state import ContractReviewState
+from contract_review.core.config import get_settings
+from contract_review.graph.state import ContractReviewState, emit_stage
 from contract_review.llm.json_client import call_llm_json
-from contract_review.rules import RuleEngine, default_registry
+from contract_review.rules import RuleEngine
 from contract_review.rules.models import RuleMatch
+from contract_review.services.rule_center_service import RuleCenterService
 
 
 def _rule_match_to_legacy(match: RuleMatch, number: int) -> dict[str, Any]:
@@ -231,13 +233,19 @@ def _risk_summary(findings: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 async def compliance_checker_node(state: ContractReviewState) -> dict:
+    emit_stage(state, "LLM_REVIEW")
     text = state.get("raw_text", "")
     fields = state.get("extracted_fields", {})
     llm_config = state.get("llm_config")
     contract_type = state.get("contract_type", "general")
     findings = list(state.get("compliance_findings", []))
     if not findings:
-        deterministic = RuleEngine(default_registry()).evaluate(text, contract_type)
+        settings = get_settings()
+        registry = RuleCenterService(
+            settings.rule_center_data_dir,
+            settings.risk_feedback_data_dir,
+        ).configured_registry(contract_type)
+        deterministic = RuleEngine(registry).evaluate(text, contract_type)
         findings = [_rule_match_to_legacy(match, index) for index, match in enumerate(deterministic, 1)]
 
     llm_result = await call_llm_json(

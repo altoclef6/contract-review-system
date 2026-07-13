@@ -100,9 +100,30 @@ def build_history_item(
     token_usage: int | None = None,
     source_file_path: str | None = None,
     created_by: str | None = None,
+    contract_id: str | None = None,
+    contract_version_id: str | None = None,
+    contract_text_path: str | None = None,
 ) -> dict[str, Any]:
     final_report = final_report or {}
     risk_score = final_report.get("风险评分", {})
+    findings = final_report.get("风险点")
+    rule_counts: dict[str, dict[str, Any]] = {}
+    if isinstance(findings, list):
+        for finding in findings:
+            if not isinstance(finding, dict):
+                continue
+            rule_id = str(finding.get("rule_id") or "").strip()
+            if not rule_id:
+                continue
+            current = rule_counts.setdefault(
+                rule_id,
+                {
+                    "rule_id": rule_id,
+                    "title": str(finding.get("风险标题") or rule_id),
+                    "count": 0,
+                },
+            )
+            current["count"] += 1
     return {
         "review_id": review_id,
         "file_name": file_name,
@@ -115,10 +136,15 @@ def build_history_item(
         "token_usage": token_usage,
         "source_file_path": source_file_path,
         "created_by": created_by,
+        "contract_id": contract_id,
+        "contract_version_id": contract_version_id,
+        "contract_text_path": contract_text_path,
         "overall_risk_level": final_report.get("总体风险等级"),
         "risk_score": risk_score.get("风险分"),
         "safe_score": risk_score.get("安全分"),
         "risk_counts": final_report.get("风险统计", {}),
+        "rule_counts": list(rule_counts.values()),
+        "rule_counts_complete": isinstance(findings, list),
         "ai_status": final_report.get("AI增强"),
         "report_path": report_path,
         "exports": exports,

@@ -2,10 +2,19 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections.abc import Callable
 from pathlib import Path
 from time import perf_counter
 from typing import Any
 
+from contract_review.agents.classifier import contract_classifier_node
+from contract_review.agents.compliance_checker import compliance_checker_node
+from contract_review.agents.coordinator import coordinator_node
+from contract_review.agents.extractor import extractor_node
+from contract_review.agents.knowledge_retriever import knowledge_retriever_node
+from contract_review.agents.refiner import refiner_node
+from contract_review.agents.rule_checker import rule_checker_node
+from contract_review.agents.validator import validator_node
 from contract_review.core.config import Settings
 from contract_review.schemas.review import ReviewResponse
 from contract_review.services.document_loader import DocumentLoader
@@ -13,6 +22,7 @@ from contract_review.services.history_service import HistoryService, build_histo
 from contract_review.services.model_config_service import ModelConfigService
 from contract_review.services.prompt_template_service import PromptTemplateService
 from contract_review.services.report_service import ReportService
+from contract_review.services.risk_service import RiskService
 from contract_review.utils.id_generator import generate_review_id
 
 
@@ -32,9 +42,14 @@ class ReviewService:
         llm_config: dict[str, Any] | None = None,
         contract_type: str = "general",
         actor_id: str | None = None,
+        contract_id: str | None = None,
+        contract_version_id: str | None = None,
+        stage_callback: Callable[[str], None] | None = None,
     ) -> ReviewResponse:
         review_id = generate_review_id()
         started_at = perf_counter()
+        if stage_callback:
+            stage_callback("PARSING")
         raw_text = await asyncio.to_thread(self.document_loader.load_text, file_path)
         prompt_templates = PromptTemplateService(self.settings.prompt_template_data_dir).resolve(
             contract_type
@@ -49,8 +64,15 @@ class ReviewService:
             "contract_type": contract_type,
             "prompt_templates": prompt_templates,
             "errors": [],
+            "stage_callback": stage_callback,
         }
-        result = await self.graph.ainvoke(initial_state)
+        try:
+            result = await self.graph.ainvoke(initial_state)
+        except Exception:
+            result = await self._run_deterministic_fallback(initial_state)
+            result["errors"] = list(result.get("errors", [])) + [
+                "LLM workflow unavailable; deterministic review fallback completed."
+            ]
         located_findings = self._attach_text_locations(
             result.get("compliance_findings", []), raw_text
         )
@@ -60,6 +82,15 @@ class ReviewService:
             final_report["风险点"] = located_findings
         export_paths: dict[str, str] = {}
         if final_report:
+            if stage_callback:
+                stage_callback("GENERATING_REPORT")
+            self.settings.report_dir.mkdir(parents=True, exist_ok=True)
+            text_snapshot = self.settings.report_dir / f"{review_id}.source.txt"
+            await asyncio.to_thread(
+                text_snapshot.write_text,
+                raw_text,
+                encoding="utf-8",
+            )
             generated = await asyncio.to_thread(
                 self.report_service.save_all_reports,
                 review_id,
@@ -70,6 +101,16 @@ class ReviewService:
                 self.settings.model_config_data_dir,
                 self.settings.resolve_model_credential_encryption_key(),
             ).get_active()
+            if stage_callback:
+                stage_callback("PERSISTING_RISKS")
+            await asyncio.to_thread(
+                RiskService(self.settings).persist_review_findings,
+                review_id=review_id,
+                findings=located_findings,
+                contract_id=contract_id,
+                contract_version_id=contract_version_id,
+                created_by=actor_id,
+            )
             await asyncio.to_thread(
                 self.history_service.append,
                 build_history_item(
@@ -85,6 +126,9 @@ class ReviewService:
                     prompt_snapshot=prompt_templates,
                     source_file_path=str(file_path),
                     created_by=actor_id,
+                    contract_id=contract_id,
+                    contract_version_id=contract_version_id,
+                    contract_text_path=str(text_snapshot),
                 ),
             )
 
@@ -102,6 +146,26 @@ class ReviewService:
             agent_trace=result.get("agent_trace", []),
             errors=result.get("errors", []),
         )
+
+    async def _run_deterministic_fallback(self, initial_state: dict[str, Any]) -> dict[str, Any]:
+        state = dict(initial_state)
+        state["llm_config"] = {"disabled": True}
+        # LLM helpers already return a safe empty result when no provider is available.
+        # Running the explicit nodes preserves deterministic extraction and rule findings.
+        for node in (
+            contract_classifier_node,
+            extractor_node,
+            rule_checker_node,
+            knowledge_retriever_node,
+            compliance_checker_node,
+            validator_node,
+            refiner_node,
+            coordinator_node,
+        ):
+            update = await node(state)
+            if isinstance(update, dict):
+                state.update(update)
+        return state
 
     def _attach_text_locations(
         self,

@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     workflow_data_dir: Path = Path("data/workflows")
     notification_data_dir: Path = Path("data/notifications")
     security_data_dir: Path = Path("data/security")
+    review_task_data_dir: Path = Path("data/review-tasks")
+    rule_center_data_dir: Path = Path("data/rule-center")
+    knowledge_center_data_dir: Path = Path("data/knowledge-center")
+    risk_feedback_data_dir: Path = Path("data/risk-feedback")
     max_upload_size_mb: int = 50
 
     jwt_secret_key: SecretStr
@@ -69,6 +73,9 @@ class Settings(BaseSettings):
     )
     celery_broker_url: SecretStr = SecretStr("redis://localhost:6379/1")
     celery_result_backend: SecretStr = SecretStr("redis://localhost:6379/2")
+    review_tasks_sync_fallback: bool = True
+    review_task_timeout_seconds: int = 900
+    review_task_max_retries: int = 2
 
     tesseract_cmd: str | None = None
     libreoffice_cmd: str | None = None

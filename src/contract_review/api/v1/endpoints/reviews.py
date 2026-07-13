@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse
 from contract_review.api.dependencies.auth import require_permission
 from contract_review.schemas.auth import Permission, UserPublic, UserRole
 from contract_review.schemas.review import ReviewResponse
+from contract_review.services.contract_service import ContractService, ContractServiceError
 from contract_review.services.history_service import HistoryService
 from contract_review.services.review_service import ReviewService
 from contract_review.utils.file_utils import save_upload_file
@@ -50,6 +51,8 @@ async def create_review(
         title="合同文件",
         description="待审查的合同文件，支持 PDF、Word(.docx)、PNG、JPG、TIFF、BMP。",
     ),
+    contract_id: str | None = Form(default=None, max_length=120),
+    contract_version_id: str | None = Form(default=None, max_length=120),
     x_llm_api_key: str | None = Header(default=None, include_in_schema=False),
     x_llm_provider: str | None = Header(default=None, include_in_schema=False),
     x_llm_model: str | None = Header(default=None, include_in_schema=False),
@@ -65,6 +68,14 @@ async def create_review(
     llm_config = {key: value for key, value in llm_config.items() if value}
 
     settings = request.app.state.settings
+    if contract_id:
+        contracts = ContractService(settings.contract_data_dir)
+        try:
+            contracts.require_access(contract_id, actor_id=user.id, actor_role=user.role.value)
+            if contract_version_id:
+                contracts.get_version(contract_id, contract_version_id)
+        except ContractServiceError as exc:
+            raise HTTPException(status_code=404, detail="合同不可访问") from exc
     saved_path = await save_upload_file(
         file=合同文件,
         upload_dir=settings.upload_dir,
@@ -74,14 +85,24 @@ async def create_review(
         graph=request.app.state.contract_review_graph,
         settings=settings,
     )
-    return await service.review_file(
+    result = await service.review_file(
         file_path=saved_path,
         original_file_name=合同文件.filename or saved_path.name,
         content_type=合同文件.content_type,
         llm_config=llm_config,
         contract_type=合同类型,
         actor_id=user.id,
+        contract_id=contract_id,
+        contract_version_id=contract_version_id,
     )
+    if contract_id and contract_version_id:
+        contracts.set_version_review(
+            contract_id=contract_id,
+            version_id=contract_version_id,
+            review_id=result.review_id,
+            actor_id=user.id,
+        )
+    return result
 
 
 @router.get("", summary="审查历史", operation_id="审查历史")

@@ -69,6 +69,9 @@ class KnowledgeService:
                             "status": document.status.value,
                             "version": document.version,
                             "issuing_authority": document.issuing_authority or "",
+                            "updated_at": document.updated_at.isoformat()
+                            if document.updated_at
+                            else "",
                             "is_enterprise_policy": str(
                                 document.source_type.value == "enterprise_policy"
                             ).lower(),

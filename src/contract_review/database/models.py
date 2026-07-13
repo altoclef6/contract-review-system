@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -11,6 +12,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -55,6 +57,9 @@ class ContractModel(Base, TimestampMixin):
     category: Mapped[str] = mapped_column(String(30), index=True)
     status: Mapped[str] = mapped_column(String(30), index=True, default="draft")
     creator_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    counterparty: Mapped[str | None] = mapped_column(String(255))
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    currency: Mapped[str | None] = mapped_column(String(3), default="CNY")
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -87,7 +92,7 @@ class ContractVersionModel(Base, TimestampMixin):
 class ReviewModel(Base, TimestampMixin):
     __tablename__ = "reviews"
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("review"))
-    contract_id: Mapped[str | None] = mapped_column(ForeignKey("contracts.id"), index=True)
+    contract_id: Mapped[str | None] = mapped_column(String(64), index=True)
     contract_version_id: Mapped[str | None] = mapped_column(ForeignKey("contract_versions.id"))
     creator_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), index=True)
     status: Mapped[str] = mapped_column(String(30), index=True, default="pending")
@@ -100,6 +105,34 @@ class ReviewModel(Base, TimestampMixin):
     risk_level: Mapped[str | None] = mapped_column(String(30), index=True)
     result: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     error_message: Mapped[str | None] = mapped_column(Text)
+
+
+class ReviewTaskModel(Base, TimestampMixin):
+    __tablename__ = "review_tasks"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("task"))
+    contract_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    contract_version_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    requested_by: Mapped[str] = mapped_column(String(64), index=True)
+    status: Mapped[str] = mapped_column(String(40), index=True)
+    current_stage: Mapped[str] = mapped_column(String(60), index=True)
+    progress: Mapped[int | None] = mapped_column(Integer)
+    idempotency_key: Mapped[str] = mapped_column(String(160), index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    provider: Mapped[str | None] = mapped_column(String(80))
+    model_name: Mapped[str | None] = mapped_column(String(160))
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    safe_error_message: Mapped[str | None] = mapped_column(Text)
+    celery_task_id: Mapped[str | None] = mapped_column(String(160), index=True)
+    result_summary: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    file_path: Mapped[str | None] = mapped_column(String(1000))
+    original_file_name: Mapped[str | None] = mapped_column(String(260))
+    content_type: Mapped[str | None] = mapped_column(String(120))
+    contract_type: Mapped[str] = mapped_column(String(60), default="general")
+    review_id: Mapped[str | None] = mapped_column(String(80), index=True)
+    audit_events: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
 
 
 class ModelConfigModel(Base, TimestampMixin):
@@ -176,14 +209,17 @@ class AppStateModel(Base):
 class RiskFindingModel(Base, TimestampMixin):
     __tablename__ = "risk_findings"
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("risk"))
-    contract_id: Mapped[str | None] = mapped_column(ForeignKey("contracts.id"), index=True)
-    review_task_id: Mapped[str] = mapped_column(ForeignKey("reviews.id"), index=True)
+    # Compatibility services persist contract aggregate IDs outside the typed SQL tables.
+    contract_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    contract_version_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    review_task_id: Mapped[str] = mapped_column(String(64), index=True)
+    source_risk_id: Mapped[str | None] = mapped_column(String(64), index=True)
     title: Mapped[str] = mapped_column(String(255))
     category: Mapped[str] = mapped_column(String(80), index=True)
     severity: Mapped[str] = mapped_column(String(20), index=True)
     risk_score: Mapped[float] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(40), index=True)
-    confidence: Mapped[float] = mapped_column(Float)
+    confidence: Mapped[float | None] = mapped_column(Float)
     contract_text: Mapped[str] = mapped_column(Text, default="")
     normalized_text: Mapped[str] = mapped_column(Text, default="")
     location: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
@@ -195,10 +231,20 @@ class RiskFindingModel(Base, TimestampMixin):
     agent_name: Mapped[str | None] = mapped_column(String(100))
     rule_id: Mapped[str | None] = mapped_column(String(64), index=True)
     knowledge_document_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
-    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    status: Mapped[str] = mapped_column(String(30), default="pending_review", index=True)
     reviewer_comment: Mapped[str | None] = mapped_column(Text)
     ai_original_recommendation: Mapped[str | None] = mapped_column(Text)
     human_final_opinion: Mapped[str | None] = mapped_column(Text)
+    revised_clause: Mapped[str | None] = mapped_column(Text)
+    assignee_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    reviewer_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    created_by: Mapped[str | None] = mapped_column(String(64), index=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revision: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    state_history: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    comments: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    ai_involved: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class KnowledgeDocumentModel(Base, TimestampMixin):

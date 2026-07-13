@@ -4,7 +4,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from contract_review.graph.state import ContractReviewState
+from contract_review.graph.state import ContractReviewState, emit_stage
 from contract_review.llm.json_client import call_llm_json
 
 
@@ -145,6 +145,7 @@ def _merge_extraction(
 
 
 async def extractor_node(state: ContractReviewState) -> dict:
+    emit_stage(state, "EXTRACTING")
     text = state.get("raw_text", "")
     llm_config = state.get("llm_config")
     rule_result = _rule_extract(text)

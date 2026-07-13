@@ -3,12 +3,13 @@ from __future__ import annotations
 from time import perf_counter
 
 from contract_review.agents.compliance_checker import _rule_match_to_legacy
-from contract_review.graph.state import ContractReviewState
+from contract_review.graph.state import ContractReviewState, emit_stage
 from contract_review.rules import RuleEngine, default_registry
 from contract_review.schemas.agent import NodeTelemetry, RuleCheckerOutput, utcnow
 
 
 async def rule_checker_node(state: ContractReviewState) -> dict:
+    emit_stage(state, "RULE_REVIEW")
     started_at = utcnow()
     started = perf_counter()
     matches = RuleEngine(default_registry()).evaluate(

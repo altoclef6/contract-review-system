@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Cpu, Delete, Document, Refresh, UploadFilled } from '@element-plus/icons-vue'
+import { Delete, Document, Refresh, UploadFilled } from '@element-plus/icons-vue'
 import { api } from '../api'
+import EmptyState from '../components/EmptyState.vue'
+import MetricCard from '../components/MetricCard.vue'
+import PageHeader from '../components/PageHeader.vue'
+import RiskLevelTag from '../components/RiskLevelTag.vue'
 
 interface TextLocation {
   定位状态: '精确定位' | '相关上下文' | '缺失条款'
@@ -18,15 +22,8 @@ const loading = ref(false)
 const result = ref<any>()
 const activeRisk = ref<any>()
 const highlightedClause = ref<HTMLElement>()
-const reviewStage = ref(0)
-const reviewProgress = ref(0)
 const elapsedSeconds = ref(0)
 let elapsedTimer: number | undefined
-const reviewStages = ['协调者接收合同', '提取者解析全文', '合规 Agent 检索风险', '修订 Agent 生成建议']
-const progressHint = computed(() => {
-  if (reviewProgress.value >= 100) return '审查结果已生成'
-  return '后端正在执行文档解析、规则检查和审查流程'
-})
 
 const formattedFileSize = computed(() => {
   if (!file.value) return ''
@@ -62,8 +59,6 @@ const textAfter = computed(() => {
 async function run() {
   if (!file.value) return ElMessage.warning('请选择合同文件')
   loading.value = true
-  reviewStage.value = 0
-  reviewProgress.value = 0
   elapsedSeconds.value = 0
   const startedAt = performance.now()
   window.clearInterval(elapsedTimer)
@@ -75,8 +70,6 @@ async function run() {
   form.append('合同类型', type.value)
   try {
     result.value = (await api.post('/reviews', form, { timeout: 300000 })).data
-    reviewProgress.value = 100
-    reviewStage.value = reviewStages.length - 1
     activeRisk.value = result.value.risk_findings.find(
       (risk: any) => risk.原文定位?.字符起点 !== null,
     ) || result.value.risk_findings[0]
@@ -103,12 +96,6 @@ async function focusRisk(risk: any) {
   highlightedClause.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
-function riskTagType(level: string) {
-  if (level === '高' || level === '严重') return 'danger'
-  if (level === '中') return 'warning'
-  return 'success'
-}
-
 const onChange = (upload: any) => { file.value = upload.raw }
 
 function triggerUpload() {
@@ -126,17 +113,7 @@ function removeFile() {
 
 <template>
   <div class="review-page">
-    <header class="review-page-head">
-      <div>
-        <h1>智能审查工作台</h1>
-        <p>风险清单与合同原文双栏联动审查</p>
-      </div>
-      <div class="ai-service-status" aria-label="AI 服务状态正常">
-        <span class="ai-status-icon"><el-icon><Cpu /></el-icon></span>
-        <span><b>AI服务正常</b><small>审查能力已就绪</small></span>
-        <i></i>
-      </div>
-    </header>
+    <PageHeader title="智能审查工作台" description="上传合同后执行文档解析、确定性规则与 AI 辅助审查，并定位风险原文。" eyebrow="合同风险审查" />
 
     <main class="review-content">
       <section class="review-setup" aria-label="合同上传与审查配置">
@@ -189,20 +166,13 @@ function removeFile() {
 
       <section class="result-area" aria-label="审查结果">
         <div v-if="result" class="result-summary">
-          <div :class="['metric-card', 'risk-level-card', overallRiskClass]">
-            <span>综合风险</span>
-            <strong><em>{{ result.final_report?.总体风险等级 }}</em>风险</strong>
-          </div>
-          <div class="metric-card score-card"><span>风险评分</span><strong>{{ result.final_report?.风险评分?.风险分 }} <small>/ 100</small></strong></div>
-          <div class="metric-card count-card"><span>风险点</span><strong>{{ result.risk_findings.length }}<small>项</small></strong></div>
-          <div class="metric-card severe-card"><span>严重风险</span><strong>{{ severeRiskCount }}<small>项</small></strong></div>
+          <MetricCard label="综合风险" :value="`${result.final_report?.总体风险等级}风险`" :tone="overallRiskClass === 'is-high' ? 'high' : overallRiskClass === 'is-medium' ? 'medium' : 'low'" />
+          <MetricCard label="风险评分" :value="result.final_report?.风险评分?.风险分" unit="/ 100" tone="medium" />
+          <MetricCard label="风险点" :value="result.risk_findings.length" unit="项" />
+          <MetricCard label="严重风险" :value="severeRiskCount" unit="项" tone="high" />
         </div>
 
-        <div v-if="!result" class="empty-result">
-          <span class="empty-result-icon"><el-icon><Document /></el-icon></span>
-          <h2>尚未生成审查结果</h2>
-          <p>上传合同并开始审查后，系统将在此展示风险条款、风险说明和修改建议。</p>
-        </div>
+        <EmptyState v-if="!result" title="尚未生成审查结果" description="上传合同并开始审查后，系统将在此展示风险条款、风险说明和修改建议。" />
 
         <section v-else class="results">
           <div class="result-toolbar">
@@ -223,7 +193,7 @@ function removeFile() {
             @click="focusRisk(risk)"
           >
             <div class="linked-risk-title">
-              <el-tag :type="riskTagType(risk.风险等级)" size="small">{{ risk.风险等级 }}</el-tag>
+              <RiskLevelTag :level="risk.风险等级" />
               <strong>{{ risk.短标题 || risk.风险类别 }}</strong>
               <small>{{ risk.风险编号 }}</small>
             </div>
@@ -256,19 +226,15 @@ function removeFile() {
 
   <Teleport to="body">
     <Transition name="ritual-fade">
-      <section v-if="loading" class="review-ritual" aria-live="polite">
-        <div class="ritual-scene"></div><div class="ritual-shade"></div>
+      <section v-if="loading" class="review-ritual" aria-live="polite" aria-busy="true">
         <div class="ritual-content">
-          <span class="ritual-code">CONTRACT / ANALYSIS</span>
+          <span class="ritual-brand"><el-icon><Document /></el-icon></span>
+          <span class="ritual-code">CONTRACT REVIEW</span>
           <h2>合同审查进行中</h2>
-          <p>{{ reviewStages[reviewStage] }}</p>
-          <div class="ritual-timing"><strong>{{ reviewProgress >= 100 ? '审查完成' : '处理中' }}</strong><span>已等待 {{ elapsedSeconds }} 秒 · {{ progressHint }}</span></div>
-          <div class="ritual-agents">
-            <div v-for="(stage, index) in reviewStages" :key="stage" :class="{ active: index <= reviewStage }">
-              <i>{{ String(index + 1).padStart(2, '0') }}</i><span>{{ stage }}</span>
-            </div>
-          </div>
-          <div :class="['ritual-progress', { complete: reviewProgress >= 100 }]"><span></span></div>
+          <p>后端正在执行文档解析、规则检查和审查流程</p>
+          <div class="ritual-progress"><span></span></div>
+          <div class="ritual-timing"><strong>处理中</strong><span>已等待 {{ elapsedSeconds }} 秒，请勿关闭当前页面</span></div>
+          <small>此处仅显示请求活动状态，不代表具体后端阶段进度。</small>
         </div>
       </section>
     </Transition>
@@ -293,9 +259,8 @@ function removeFile() {
   min-height: calc(100vh - 150px);
   margin: 0 auto;
   color: var(--review-text);
-  background: var(--review-bg);
-  box-shadow: 0 0 0 100vmax var(--review-bg);
-  clip-path: inset(0 -100vmax);
+  background: transparent;
+  box-shadow: none;
   font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
@@ -450,22 +415,6 @@ function removeFile() {
   --review-radius: 12px;
   position: fixed; z-index: 3000; inset: 0; display: grid; place-items: center; padding: 32px; overflow: hidden; background: #f5f7fb !important;
 }
-.ritual-scene { position: absolute; inset: 0; display: block; overflow: hidden; pointer-events: none; background: none !important; filter: none !important; opacity: 1 !important; animation: none !important; }
-.ritual-scene::before,
-.ritual-scene::after {
-  content: "";
-  position: absolute;
-  inset: -18%;
-  opacity: 0.2;
-  background-image:
-    radial-gradient(circle, rgba(147, 197, 253, 0.9) 0 1px, transparent 1.6px),
-    radial-gradient(circle, rgba(37, 99, 235, 0.72) 0 1.4px, transparent 2px);
-  background-position: 20px 28px, 84px 96px;
-  background-size: 132px 132px, 196px 196px;
-  animation: review-particles-drift 18s linear infinite;
-}
-.ritual-scene::after { opacity: 0.12; transform: scale(1.08); animation-duration: 26s; animation-direction: reverse; }
-.ritual-shade { display: none !important; }
 .ritual-content {
   position: relative !important;
   z-index: 1;
@@ -507,19 +456,12 @@ function removeFile() {
 .ritual-fade-enter-from,
 .ritual-fade-leave-to { opacity: 0; }
 
-@keyframes review-particles-drift {
-  from { translate: 0 0; }
-  to { translate: 46px -54px; }
-}
-
 @keyframes review-loading-scan {
   from { transform: translateX(-105%); }
   to { transform: translateX(315%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ritual-scene::before,
-  .ritual-scene::after,
   .ritual-progress span { animation: none; }
   .ritual-progress span { left: 34%; }
   .ritual-progress.complete span { left: 0; }
@@ -561,5 +503,92 @@ function removeFile() {
   .ritual-agents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ritual-agents > div:nth-child(3) { border-left: 0; border-top: 1px solid var(--review-border); }
   .ritual-agents > div:nth-child(4) { border-top: 1px solid var(--review-border); }
+}
+</style>
+
+<style scoped>
+.review-page {
+  max-width: none;
+  min-height: calc(100vh - 160px);
+  background: transparent;
+  box-shadow: none;
+  clip-path: none;
+}
+
+.review-content { padding: 0 0 24px; }
+
+.result-summary {
+  gap: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.review-ritual { background: rgba(245, 247, 251, 0.96) !important; }
+
+.ritual-content {
+  width: min(560px, 100%);
+  padding: 36px 40px;
+  border: 1px solid var(--review-border);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(23, 32, 51, 0.12);
+}
+
+.ritual-brand {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 16px;
+  border-radius: 14px;
+  color: #fff;
+  background: var(--review-primary);
+  font-size: 24px;
+}
+
+.ritual-code::before,
+.ritual-code::after { display: none; }
+
+.ritual-content h2 {
+  margin: 12px 0 8px;
+  font-size: 28px;
+  letter-spacing: 0.04em;
+}
+
+.ritual-content > p { letter-spacing: 0; }
+
+.ritual-progress {
+  width: 100%;
+  height: 4px;
+  margin: 28px 0 18px;
+  border-radius: 2px;
+}
+
+.ritual-timing {
+  flex-direction: row;
+  gap: 12px;
+  margin: 0;
+}
+
+.ritual-timing strong {
+  min-width: 72px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 15px;
+  letter-spacing: 0;
+}
+
+.ritual-content > small {
+  display: block;
+  margin-top: 18px;
+  color: var(--review-muted);
+  font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  .ritual-content { padding: 28px 20px; }
+  .ritual-timing { align-items: center; flex-direction: column; }
 }
 </style>

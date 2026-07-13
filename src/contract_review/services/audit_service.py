@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import select
+
 from contract_review.core.config import get_settings
 from contract_review.database.models import AuditLogModel
 from contract_review.database.session import get_session_factory
@@ -53,6 +55,41 @@ class AuditService:
                 "metadata": metadata or {},
             },
         )
+
+    def list_operations(self, *, target: str, limit: int = 50) -> list[dict[str, Any]]:
+        if get_settings().database_enabled:
+            with get_session_factory()() as session:
+                rows = session.scalars(
+                    select(AuditLogModel)
+                    .where(AuditLogModel.target == target)
+                    .order_by(AuditLogModel.created_at.desc())
+                    .limit(limit)
+                ).all()
+                return [
+                    {
+                        "actor_id": row.actor_id,
+                        "action": row.action,
+                        "target": row.target,
+                        "metadata": row.details.get("metadata", {}),
+                        "created_at": row.created_at,
+                    }
+                    for row in rows
+                ]
+        if not self.operation_log_path.exists():
+            return []
+        records: list[dict[str, Any]] = []
+        for line in self.operation_log_path.read_text(encoding="utf-8").splitlines():
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if item.get("target") == target:
+                records.append(item)
+        return sorted(
+            records,
+            key=lambda item: str(item.get("created_at") or ""),
+            reverse=True,
+        )[:limit]
 
     def _append(self, path: Path, payload: dict[str, Any]) -> None:
         record = {"created_at": datetime.now(timezone.utc).isoformat(), **payload}

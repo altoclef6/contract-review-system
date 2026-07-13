@@ -1,48 +1,120 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-  Bell,
-  ChatLineRound,
-  DataAnalysis,
-  Document,
-  Files,
-  Link,
-  Operation,
-  Setting,
-  SwitchButton,
-} from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import AppShell from '../components/layout/AppShell.vue'
 import { api } from '../api'
 import { useAuthStore } from '../stores/auth'
 
-const auth = useAuthStore(); const route = useRoute(); const router = useRouter(); const unread = ref(0)
+const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
+const unread = ref(0)
+const collapsed = ref(window.innerWidth < 1100)
+const passwordDialog = ref(false)
+const passwordLoading = ref(false)
+const passwordForm = reactive({ current: '', next: '', confirm: '' })
 const apiDocsUrl = import.meta.env.DEV ? 'http://127.0.0.1:8000/docs' : '/docs'
-const menus = computed(() => [
-  ['/dashboard', '经营看板', DataAnalysis, '01'], ['/contracts', '合同中心', Files, '02'], ['/review', '智能审查', Document, '03'],
-  ['/assistant', 'AI 法务助手', ChatLineRound, '04'], ['/workflows', '审批流程', Operation, '05'],
-  ...(auth.user?.role !== 'employee' ? [['/settings', '系统配置', Setting, '06'] as any] : []),
-])
-const activeModule = computed(() => menus.value.find((item) => route.path.startsWith(item[0] as string)) || menus.value[0])
+
+const role = computed(() => auth.user?.role || 'employee')
+const pageTitle = computed(() => String(route.meta.title || '衡契合同审查平台'))
+const breadcrumb = computed(() => String(route.meta.section || '业务中心'))
+
+function onResize() {
+  if (window.innerWidth < 900) collapsed.value = true
+}
+
 onMounted(async () => {
-  try { unread.value = (await api.get('/notifications')).data.data.unread_count } catch {}
+  window.addEventListener('resize', onResize)
+  try {
+    unread.value = (await api.get('/notifications')).data.data.unread_count
+  } catch {
+    unread.value = 0
+  }
 })
-function logout() { auth.logout(); router.push('/login') }
-function openApiDocs() {
-  window.location.href = apiDocsUrl
+
+onBeforeUnmount(() => window.removeEventListener('resize', onResize))
+
+watch(() => route.path, () => {
+  if (window.innerWidth < 900) collapsed.value = true
+})
+
+function logout() {
+  auth.logout()
+  router.push('/login')
+}
+
+function handleNavigate() {
+  if (window.innerWidth < 900) collapsed.value = true
+}
+
+function openPasswordDialog() {
+  passwordForm.current = ''
+  passwordForm.next = ''
+  passwordForm.confirm = ''
+  passwordDialog.value = true
+}
+
+async function changePassword() {
+  if (!passwordForm.current || !passwordForm.next) {
+    ElMessage.warning('请填写当前密码和新密码')
+    return
+  }
+  if (passwordForm.next.length < 8) {
+    ElMessage.warning('新密码至少需要 8 个字符')
+    return
+  }
+  if (passwordForm.next !== passwordForm.confirm) {
+    ElMessage.warning('两次输入的新密码不一致')
+    return
+  }
+  passwordLoading.value = true
+  try {
+    await api.post('/auth/change-password', {
+      old_password: passwordForm.current,
+      new_password: passwordForm.next,
+    })
+    passwordDialog.value = false
+    ElMessage.success('密码已修改，请重新登录')
+    logout()
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.message || '密码修改失败，请检查当前密码')
+  } finally {
+    passwordLoading.value = false
+  }
 }
 </script>
 
 <template>
-  <div class="shell">
-    <aside class="sidebar">
-      <div class="brand"><span>衡</span><div><b>衡契</b><small>CONTRACT INTELLIGENCE</small></div></div>
-      <div class="system-status"><i></i><span>审查中枢在线</span><small>HQ / 01</small></div>
-      <nav><router-link v-for="item in menus" :key="item[0]" :to="item[0]" :class="{ active: route.path.startsWith(item[0] as string) }"><small>{{ item[3] }}</small><el-icon><component :is="item[2]" /></el-icon><span>{{ item[1] }}</span></router-link><a :href="apiDocsUrl" class="api-doc-link" title="打开 RESTful 接口文档"><small>API</small><el-icon><Link /></el-icon><span>接口文档</span></a></nav>
-      <div class="account"><div class="avatar">{{ auth.user?.full_name?.slice(0, 1) }}</div><div><b>{{ auth.user?.full_name }}</b><small>{{ {admin:'管理员',legal:'法务',employee:'员工'}[auth.user?.role || 'employee'] }}</small></div><el-button text circle title="退出登录" @click="logout"><el-icon><SwitchButton /></el-icon></el-button></div>
-    </aside>
-    <section class="workspace">
-      <header class="topbar"><div class="module-identity"><strong>{{ activeModule[3] }}</strong><div><small>CURRENT MODULE</small><b>{{ activeModule[1] }}</b></div></div><div class="topbar-heading"><small>ENTERPRISE ARCHIVE / CONTRACT CONTROL</small><b>企业合同风险控制中心</b><span><i></i> Multi-Agent 协同审查在线</span></div><div class="topbar-actions"><el-button title="打开 RESTful 接口文档" @click="openApiDocs"><el-icon><Link /></el-icon><span>接口文档</span></el-button><el-badge :value="unread" :hidden="!unread"><el-button circle title="通知中心"><el-icon><Bell /></el-icon></el-button></el-badge></div></header>
-      <main class="page"><div class="page-calibration" aria-hidden="true"><span>HENGQI / SYSTEM</span><i></i><span>SECURE LEVEL 04</span></div><router-view v-slot="{ Component, route: currentRoute }"><transition name="module-shift" mode="out-in"><div :key="currentRoute.path" class="route-stage"><component :is="Component" /></div></transition></router-view></main>
-    </section>
-  </div>
+  <AppShell
+    :collapsed="collapsed"
+    :page-title="pageTitle"
+    :breadcrumb="breadcrumb"
+    :unread="unread"
+    :user-name="auth.user?.full_name || ''"
+    :role="role"
+    :api-docs-url="apiDocsUrl"
+    @toggle="collapsed = !collapsed"
+    @navigate="handleNavigate"
+    @logout="logout"
+    @change-password="openPasswordDialog"
+  >
+    <router-view v-slot="{ Component, route: currentRoute }">
+      <transition name="page-fade" mode="out-in">
+        <div :key="currentRoute.path" class="route-stage"><component :is="Component" /></div>
+      </transition>
+    </router-view>
+  </AppShell>
+
+  <el-dialog v-model="passwordDialog" title="修改登录密码" width="440px" append-to-body>
+    <el-form label-position="top" @submit.prevent="changePassword">
+      <el-form-item label="当前密码"><el-input v-model="passwordForm.current" type="password" show-password autocomplete="current-password" /></el-form-item>
+      <el-form-item label="新密码"><el-input v-model="passwordForm.next" type="password" show-password autocomplete="new-password" /></el-form-item>
+      <el-form-item label="确认新密码"><el-input v-model="passwordForm.confirm" type="password" show-password autocomplete="new-password" @keyup.enter="changePassword" /></el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="passwordDialog = false">取消</el-button>
+      <el-button type="primary" :loading="passwordLoading" @click="changePassword">确认修改</el-button>
+    </template>
+  </el-dialog>
 </template>

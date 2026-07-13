@@ -30,7 +30,9 @@ services:
     build: .
     environment: &backend-env
       ENVIRONMENT: prod
+      DEBUG: "false"
       DATABASE_ENABLED: "true"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       DATABASE_URL: postgresql+psycopg://contract_review:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/contract_review
       REDIS_ENABLED: "true"
       REDIS_URL: redis://redis:6379/0
@@ -39,13 +41,17 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD in .env}
+      MODEL_CREDENTIAL_ENCRYPTION_KEY: ${MODEL_CREDENTIAL_ENCRYPTION_KEY:?Set MODEL_CREDENTIAL_ENCRYPTION_KEY in .env}
+      REVIEW_TASKS_SYNC_FALLBACK: "false"
       ENABLE_LLM: ${ENABLE_LLM:-true}
+      LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL_NAME: ${LLM_MODEL_NAME:-deepseek-chat}
       TESSERACT_CMD: /usr/bin/tesseract
       LIBREOFFICE_CMD: /usr/bin/libreoffice
-      TRUSTED_HOSTS: localhost,127.0.0.1
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-localhost,127.0.0.1}
     volumes:
       - app_data:/app/data
     depends_on:
