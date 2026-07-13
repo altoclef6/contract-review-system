@@ -39,6 +39,8 @@
 - `bd7b945` — `feat: add legal knowledge version tracking`
 - `9a78a48` — `fix: remove decorative particles and simulated review progress`
 - `41bbfc9` — `test: enforce verified authorization and coverage baseline`
+- `862fddd` — `docs: publish verified architecture and metrics`
+- `31268ef` — `ci: add reproducible security and quality checks`
 
 ## 5. 新增和修改文件
 
@@ -59,7 +61,7 @@
 - 失败：0。
 - 真实覆盖率：83%。
 - 前端构建：成功，2241 modules；存在约 1.04 MB 与 1.07 MB 的大 chunk 警告。
-- Docker：`docker compose config --quiet` 通过；镜像构建未进行真实测量。
+- Docker：`docker compose config --quiet` 通过；后端镜像构建因本机 Docker Desktop daemon 未运行而未完成，错误为无法连接 `dockerDesktopLinuxEngine`。
 
 ## 13-16. 安全、规则和样本
 
