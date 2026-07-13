@@ -41,6 +41,8 @@
 - `41bbfc9` — `test: enforce verified authorization and coverage baseline`
 - `862fddd` — `docs: publish verified architecture and metrics`
 - `31268ef` — `ci: add reproducible security and quality checks`
+- `6057b75` — `feat: add contract version remediation workflow`
+- `37e207f` — `refactor: clarify multi-agent responsibilities`
 
 ## 5. 新增和修改文件
 
@@ -53,13 +55,14 @@
 - `20260710_0001`：原企业 Schema。
 - `20260710_0002`：原应用状态。
 - `20260713_0003`：可解释风险与版本化知识文档，当前唯一 head。
+- `20260713_0004`：合同版本文件哈希、父版本关系和版本类型，当前唯一 head。
 
 ## 7-12. 验证结果
 
-- 当前测试总数：50。
-- 通过：50。
+- 当前测试总数：55。
+- 通过：55。
 - 失败：0。
-- 真实覆盖率：83%。
+- 真实覆盖率：83.65%。
 - 前端构建：成功，2241 modules；存在约 1.04 MB 与 1.07 MB 的大 chunk 警告。
 - Docker：`docker compose config --quiet` 通过；后端镜像构建因本机 Docker Desktop daemon 未运行而未完成，错误为无法连接 `dockerDesktopLinuxEngine`。
 
