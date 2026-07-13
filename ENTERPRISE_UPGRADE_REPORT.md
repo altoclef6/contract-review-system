@@ -24,7 +24,7 @@
 
 ## 3. 未完成修改
 
-以下项目未在本轮实现，不应视为已交付：Refresh Token 持久撤销/Token 版本；登录分布式限流；Legal 分配范围模型；全部非合同资源 IDOR 审计；ZIP 解压炸弹细粒度限制；知识库混合检索；完整七节点 Multi-Agent 结构化重构；真实 Celery 阶段恢复和幂等；合同文本 diff 和风险映射；全部前端管理页；20 类虚构测试数据、Gold Standard、E2E；真实模型消融；覆盖率门槛；完整供应链扫描扩充；README 全面重写。
+以下项目仍未实现，不应视为已交付：登录分布式限流；Legal 分配范围模型；全部非合同资源 IDOR 审计；知识库向量检索；完整七节点 Multi-Agent 结构化重构；真实 Celery 阶段恢复和幂等；合同文本 diff 和风险映射；全部前端管理页与 E2E；真实模型消融；完整供应链扫描扩充。
 
 ## 4. 阶段 Commit SHA
 
@@ -32,6 +32,13 @@
 - `ce55f9f` — `fix: enforce production security and encrypt model credentials`
 - `1064017` — `feat: add deterministic explainable contract rule engine`
 - `d34a225` — `fix: prevent contract resource idor`
+- `867c0ef` — `fix: revoke tokens after security-sensitive account changes`
+- `f75a6da` — `fix: harden document upload and review downloads`
+- `cdbac5a` — `test: add fictional contract fixtures and gold labels`
+- `55e1006` — `test: add multi-agent benchmark framework`
+- `bd7b945` — `feat: add legal knowledge version tracking`
+- `9a78a48` — `fix: remove decorative particles and simulated review progress`
+- `41bbfc9` — `test: enforce verified authorization and coverage baseline`
 
 ## 5. 新增和修改文件
 
@@ -47,11 +54,11 @@
 
 ## 7-12. 验证结果
 
-- 当前测试总数：42。
-- 通过：42。
+- 当前测试总数：50。
+- 通过：50。
 - 失败：0。
-- 真实覆盖率：未进行真实测量（环境未安装并运行 coverage 插件）。
-- 前端构建：成功，2243 modules；存在约 1.04 MB 与 1.07 MB 的大 chunk 警告。
+- 真实覆盖率：83%。
+- 前端构建：成功，2241 modules；存在约 1.04 MB 与 1.07 MB 的大 chunk 警告。
 - Docker：`docker compose config --quiet` 通过；镜像构建未进行真实测量。
 
 ## 13-16. 安全、规则和样本
@@ -59,16 +66,16 @@
 - 当前主要剩余风险：Token 撤销、跨实例登录限流、其他资源 IDOR、完整上传容器安全、异步幂等仍未完成。
 - Git 历史敏感信息：高置信 API Key 形式扫描 0 命中；未使用专用全历史 secret scanner，不能等同于零风险。
 - 当前规则数量：60，全部为确定性触发指标，不是绝对法律结论。
-- 测试合同数量：现有 1 份 DOCX；未达到要求的 20 类数据集。
+- 测试合同数量：20 类完全虚构样本，配套 20 份 Gold 标签。
 
 ## 17-22. 评测与消融
 
-- 真实评测结果：未进行真实测量。
-- Mock 评测结果：未进行真实测量。
-- 平均审查耗时：未进行真实测量。
+- 真实评测结果：确定性部分标注基准，11 个文本样本；TP 26、FP 132、FN 0、Precision 0.1646、Recall 1.0000、F1 0.2826。该结果不是法律审查准确率。
+- Mock 评测结果：仅验证 A/C/D 消融结构，所有模型指标均写为“未进行真实测量”。
+- 平均审查耗时：确定性规则本地单次测量 0.530 ms；完整审查未进行真实测量。
 - 平均 Token：未进行真实测量。
 - 单份合同成本：未进行真实测量。
-- Multi-Agent 对比：未进行真实测量。
+- Multi-Agent 对比：框架可运行；A/C/D 真实模型指标未进行真实测量，B 仅有确定性规则指标。
 
 ## 23. 已知限制
 
