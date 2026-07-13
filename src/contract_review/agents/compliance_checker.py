@@ -235,8 +235,10 @@ async def compliance_checker_node(state: ContractReviewState) -> dict:
     fields = state.get("extracted_fields", {})
     llm_config = state.get("llm_config")
     contract_type = state.get("contract_type", "general")
-    deterministic = RuleEngine(default_registry()).evaluate(text, contract_type)
-    findings = [_rule_match_to_legacy(match, index) for index, match in enumerate(deterministic, 1)]
+    findings = list(state.get("compliance_findings", []))
+    if not findings:
+        deterministic = RuleEngine(default_registry()).evaluate(text, contract_type)
+        findings = [_rule_match_to_legacy(match, index) for index, match in enumerate(deterministic, 1)]
 
     llm_result = await call_llm_json(
         state.get("prompt_templates", {}).get(
