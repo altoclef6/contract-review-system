@@ -52,6 +52,7 @@ class UserService:
                 "created_at": now,
                 "updated_at": now,
                 "last_login_at": None,
+                "token_version": 0,
             }
             users.append(record)
             self._save(users)
@@ -88,6 +89,8 @@ class UserService:
             for record in users:
                 if record["id"] == user_id:
                     record["is_active"] = not disabled
+                    if disabled:
+                        record["token_version"] = int(record.get("token_version", 0)) + 1
                     record["updated_at"] = datetime.now(timezone.utc).isoformat()
                     self._save(users)
                     return self._to_public(record)
@@ -99,6 +102,7 @@ class UserService:
             for record in users:
                 if record["id"] == user_id:
                     record["role"] = role.value
+                    record["token_version"] = int(record.get("token_version", 0)) + 1
                     record["updated_at"] = datetime.now(timezone.utc).isoformat()
                     self._save(users)
                     return self._to_public(record)
@@ -111,6 +115,7 @@ class UserService:
             for record in users:
                 if record["id"] == user_id:
                     record["password_hash"] = hash_password(temporary_password)
+                    record["token_version"] = int(record.get("token_version", 0)) + 1
                     record["updated_at"] = datetime.now(timezone.utc).isoformat()
                     self._save(users)
                     return self._to_public(record), temporary_password
@@ -125,6 +130,7 @@ class UserService:
                 if not verify_password(old_password, record["password_hash"]):
                     raise UserServiceError("原密码不正确")
                 record["password_hash"] = hash_password(new_password)
+                record["token_version"] = int(record.get("token_version", 0)) + 1
                 record["updated_at"] = datetime.now(timezone.utc).isoformat()
                 self._save(users)
                 return
@@ -150,6 +156,7 @@ class UserService:
                     "created_at": now,
                     "updated_at": now,
                     "last_login_at": None,
+                    "token_version": 0,
                 }
             )
             self._save(users)
@@ -172,5 +179,6 @@ class UserService:
                 "created_at": record["created_at"],
                 "updated_at": record["updated_at"],
                 "last_login_at": record.get("last_login_at"),
+                "token_version": int(record.get("token_version", 0)),
             }
         )

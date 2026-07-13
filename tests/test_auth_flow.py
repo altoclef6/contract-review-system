@@ -60,6 +60,17 @@ def test_register_login_refresh_and_change_password(tmp_path: Path, monkeypatch)
         )
         assert change_response.status_code == 200
 
+        revoked_access = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert revoked_access.status_code == 401
+        revoked_refresh = client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": refresh_token},
+        )
+        assert revoked_refresh.status_code == 401
+
         old_login_response = client.post(
             "/api/v1/auth/login",
             json={"email": "employee@example.com", "password": "Employee12345!"},

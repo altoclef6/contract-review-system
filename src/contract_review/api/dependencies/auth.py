@@ -36,6 +36,7 @@ def issue_token_pair(user: UserPublic, settings: Settings) -> tuple[str, str, in
         secret=secret,
         token_type="access",
         expires_delta=timedelta(minutes=access_minutes),
+        token_version=user.token_version,
     )
     refresh_token = create_token(
         subject=user.id,
@@ -43,6 +44,7 @@ def issue_token_pair(user: UserPublic, settings: Settings) -> tuple[str, str, in
         secret=secret,
         token_type="refresh",
         expires_delta=timedelta(days=settings.jwt_refresh_token_days),
+        token_version=user.token_version,
     )
     return access_token, refresh_token, access_minutes * 60
 
@@ -68,6 +70,8 @@ async def get_current_user(
     user = users.get_by_id(str(payload.get("sub")))
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号不可用")
+    if int(payload.get("ver", -1)) != user.token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录状态无效")
     return user
 
 

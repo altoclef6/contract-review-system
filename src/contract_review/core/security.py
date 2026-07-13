@@ -53,6 +53,7 @@ def create_token(
     secret: str,
     token_type: TokenType,
     expires_delta: timedelta,
+    token_version: int = 0,
 ) -> str:
     now = datetime.now(timezone.utc)
     payload = {
@@ -61,6 +62,7 @@ def create_token(
         "type": token_type,
         "iat": int(now.timestamp()),
         "exp": int((now + expires_delta).timestamp()),
+        "ver": token_version,
     }
     header = {"alg": "HS256", "typ": "JWT"}
     signing_input = ".".join(

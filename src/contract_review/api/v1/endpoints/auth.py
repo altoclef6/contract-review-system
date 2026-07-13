@@ -99,6 +99,8 @@ async def refresh_token(
     user = users.get_by_id(str(token_payload.get("sub")))
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号不可用")
+    if int(token_payload.get("ver", -1)) != user.token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="刷新 Token 无效")
     access_token, refresh_token_value, expires_in = issue_token_pair(user, settings)
     return api_success(
         TokenResponse(

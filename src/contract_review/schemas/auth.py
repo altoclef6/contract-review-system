@@ -54,6 +54,7 @@ class UserPublic(BaseModel):
     created_at: datetime
     updated_at: datetime
     last_login_at: datetime | None = None
+    token_version: int = Field(default=0, exclude=True)
 
 
 class RegisterRequest(BaseModel):
