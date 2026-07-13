@@ -1,0 +1,7 @@
+{
+  "sample_id": "16_disguised_executable",
+  "file_name": "16_disguised_executable.pdf",
+  "fixture_type": "fully_fictional_test_data",
+  "expected_risks": [],
+  "should_not_match": []
+}

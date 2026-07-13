@@ -1,0 +1,7 @@
+{
+  "sample_id": "17_path_traversal_filename",
+  "file_name": "17_path_traversal_filename.json",
+  "fixture_type": "fully_fictional_test_data",
+  "expected_risks": [],
+  "should_not_match": []
+}

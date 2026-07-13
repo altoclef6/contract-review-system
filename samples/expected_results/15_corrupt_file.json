@@ -1,0 +1,7 @@
+{
+  "sample_id": "15_corrupt_file",
+  "file_name": "15_corrupt_file.pdf",
+  "fixture_type": "fully_fictional_test_data",
+  "expected_risks": [],
+  "should_not_match": []
+}

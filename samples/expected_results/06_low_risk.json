@@ -1,0 +1,11 @@
+{
+  "sample_id": "06_low_risk",
+  "file_name": "06_low_risk.txt",
+  "fixture_type": "fully_fictional_test_data",
+  "expected_risks": [],
+  "should_not_match": [
+    "R023",
+    "R040",
+    "R058"
+  ]
+}

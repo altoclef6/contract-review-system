@@ -1,0 +1,22 @@
+{
+  "sample_id": "05_software_outsourcing",
+  "file_name": "05_software_outsourcing.txt",
+  "fixture_type": "fully_fictional_test_data",
+  "expected_risks": [
+    {
+      "rule_id": "R030",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    },
+    {
+      "rule_id": "R031",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    }
+  ],
+  "should_not_match": []
+}

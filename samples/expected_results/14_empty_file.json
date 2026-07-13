@@ -1,0 +1,7 @@
+{
+  "sample_id": "14_empty_file",
+  "file_name": "14_empty_file.txt",
+  "fixture_type": "fully_fictional_test_data",
+  "expected_risks": [],
+  "should_not_match": []
+}

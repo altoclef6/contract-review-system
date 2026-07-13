@@ -1,0 +1,11 @@
+{
+  "sample_id": "01_normal_software_development",
+  "file_name": "01_normal_software_development.txt",
+  "fixture_type": "fully_fictional_test_data",
+  "expected_risks": [],
+  "should_not_match": [
+    "R018",
+    "R023",
+    "R058"
+  ]
+}

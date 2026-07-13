@@ -1,0 +1,50 @@
+{
+  "sample_id": "02_high_risk_software_development",
+  "file_name": "02_high_risk_software_development.txt",
+  "fixture_type": "fully_fictional_test_data",
+  "expected_risks": [
+    {
+      "rule_id": "R004",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    },
+    {
+      "rule_id": "R016",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    },
+    {
+      "rule_id": "R017",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    },
+    {
+      "rule_id": "R018",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    },
+    {
+      "rule_id": "R023",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    },
+    {
+      "rule_id": "R058",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    }
+  ],
+  "should_not_match": []
+}

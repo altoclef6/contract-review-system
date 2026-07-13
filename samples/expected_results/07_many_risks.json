@@ -1,0 +1,29 @@
+{
+  "sample_id": "07_many_risks",
+  "file_name": "07_many_risks.txt",
+  "fixture_type": "fully_fictional_test_data",
+  "expected_risks": [
+    {
+      "rule_id": "R019",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    },
+    {
+      "rule_id": "R027",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    },
+    {
+      "rule_id": "R053",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    }
+  ],
+  "should_not_match": []
+}

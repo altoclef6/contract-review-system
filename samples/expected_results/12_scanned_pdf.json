@@ -1,0 +1,7 @@
+{
+  "sample_id": "12_scanned_pdf",
+  "file_name": "12_scanned_pdf.pdf",
+  "fixture_type": "fully_fictional_test_data",
+  "expected_risks": [],
+  "should_not_match": []
+}

@@ -1,0 +1,15 @@
+{
+  "sample_id": "11_text_pdf",
+  "file_name": "11_text_pdf.pdf",
+  "fixture_type": "fully_fictional_test_data",
+  "expected_risks": [
+    {
+      "rule_id": "R010",
+      "severity": "review_by_rule_definition",
+      "category": "review_by_rule_definition",
+      "expected_clause": "see fictional fixture",
+      "requires_human_review": true
+    }
+  ],
+  "should_not_match": []
+}
