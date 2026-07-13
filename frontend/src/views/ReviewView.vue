@@ -262,13 +262,13 @@ function removeFile() {
           <span class="ritual-code">CONTRACT / ANALYSIS</span>
           <h2>合同审查进行中</h2>
           <p>{{ reviewStages[reviewStage] }}</p>
-          <div class="ritual-timing"><strong>{{ reviewProgress >= 100 ? '100%' : '处理中' }}</strong><span>已等待 {{ elapsedSeconds }} 秒 · {{ progressHint }}</span></div>
+          <div class="ritual-timing"><strong>{{ reviewProgress >= 100 ? '审查完成' : '处理中' }}</strong><span>已等待 {{ elapsedSeconds }} 秒 · {{ progressHint }}</span></div>
           <div class="ritual-agents">
             <div v-for="(stage, index) in reviewStages" :key="stage" :class="{ active: index <= reviewStage }">
               <i>{{ String(index + 1).padStart(2, '0') }}</i><span>{{ stage }}</span>
             </div>
           </div>
-          <div class="ritual-progress"><span :style="{ width: `${reviewProgress}%` }"></span></div>
+          <div :class="['ritual-progress', { complete: reviewProgress >= 100 }]"><span></span></div>
         </div>
       </section>
     </Transition>
@@ -448,15 +448,15 @@ function removeFile() {
   --review-muted: #64748b;
   --review-border: #e5eaf2;
   --review-radius: 12px;
-  position: fixed; z-index: 3000; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(23, 32, 51, 0.46);
+  position: fixed; z-index: 3000; inset: 0; display: grid; place-items: center; padding: 32px; overflow: hidden; background: #f5f7fb !important;
 }
-.ritual-scene { position: absolute; inset: 0; display: block; overflow: hidden; pointer-events: none; }
+.ritual-scene { position: absolute; inset: 0; display: block; overflow: hidden; pointer-events: none; background: none !important; filter: none !important; opacity: 1 !important; animation: none !important; }
 .ritual-scene::before,
 .ritual-scene::after {
   content: "";
   position: absolute;
   inset: -18%;
-  opacity: 0.48;
+  opacity: 0.2;
   background-image:
     radial-gradient(circle, rgba(147, 197, 253, 0.9) 0 1px, transparent 1.6px),
     radial-gradient(circle, rgba(37, 99, 235, 0.72) 0 1.4px, transparent 2px);
@@ -464,22 +464,44 @@ function removeFile() {
   background-size: 132px 132px, 196px 196px;
   animation: review-particles-drift 18s linear infinite;
 }
-.ritual-scene::after { opacity: 0.28; transform: scale(1.08); animation-duration: 26s; animation-direction: reverse; }
-.ritual-shade { display: none; }
-.ritual-content { position: relative; z-index: 1; width: min(520px, 100%); padding: 28px; border: 1px solid var(--review-border); border-radius: var(--review-radius); color: var(--review-text); background: #fff; box-shadow: 0 20px 50px rgba(23, 32, 51, 0.18); }
-.ritual-code { color: var(--review-primary); font-size: 11px; line-height: 18px; font-weight: 700; letter-spacing: 0.08em; }
-.ritual-content h2 { margin: 8px 0 4px; font-size: 22px; line-height: 30px; }
-.ritual-content > p { margin: 0; color: var(--review-muted); font-size: 14px; line-height: 22px; }
-.ritual-timing { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 20px 0 16px; padding: 12px; border-radius: 8px; background: #f5f7fb; }
-.ritual-timing strong { color: var(--review-primary); font-size: 14px; }
-.ritual-timing span { color: var(--review-muted); font-size: 12px; text-align: right; }
-.ritual-agents { display: grid; gap: 8px; }
-.ritual-agents > div { display: flex; align-items: center; gap: 10px; color: #94a3b8; font-size: 12px; }
-.ritual-agents > div.active { color: var(--review-text); }
-.ritual-agents i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #eef2f7; font-size: 10px; font-style: normal; }
+.ritual-scene::after { opacity: 0.12; transform: scale(1.08); animation-duration: 26s; animation-direction: reverse; }
+.ritual-shade { display: none !important; }
+.ritual-content {
+  position: relative !important;
+  z-index: 1;
+  inset: auto !important;
+  left: auto !important;
+  top: auto !important;
+  width: min(760px, 100%);
+  padding: 0;
+  transform: none !important;
+  border: 0;
+  color: var(--review-text);
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+}
+.ritual-code { display: inline-flex; align-items: center; gap: 10px; color: var(--review-primary); font: 700 11px/18px Inter, sans-serif; letter-spacing: 0.18em; }
+.ritual-code::before,
+.ritual-code::after { content: ""; width: 34px; height: 1px; background: #93c5fd; }
+.ritual-content h2 { margin: 22px 0 8px; color: var(--review-text); font-size: clamp(28px, 4vw, 42px); line-height: 1.25; font-weight: 600; letter-spacing: 0.22em; }
+.ritual-content > p { margin: 0; color: var(--review-muted); font-size: 14px; line-height: 22px; letter-spacing: 0.16em; }
+.ritual-timing { display: flex; align-items: center; flex-direction: column; justify-content: center; gap: 8px; margin: 34px auto 28px; padding: 0; background: transparent; text-align: center; }
+.ritual-timing strong { display: grid; place-items: center; min-width: 104px; height: 38px; padding: 0 18px; border: 1px solid #bfdbfe; border-radius: 19px; color: var(--review-primary); background: #eff6ff; font-size: 14px; font-weight: 700; letter-spacing: 0.12em; }
+.ritual-timing span { color: var(--review-muted); font-size: 12px; line-height: 20px; text-align: center; }
+.ritual-agents { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--review-border); border-bottom: 1px solid var(--review-border); }
+.ritual-agents > div { min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px 10px; color: #94a3b8; background: transparent; font-size: 12px; }
+.ritual-agents > div + div { border-left: 1px solid var(--review-border); }
+.ritual-agents > div.active { color: var(--review-text); background: rgba(219, 234, 254, 0.52); }
+.ritual-agents i { display: grid; flex: 0 0 auto; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: #94a3b8; background: #eef2f7; font-size: 9px; font-style: normal; }
 .ritual-agents > div.active i { color: #fff; background: var(--review-primary); }
-.ritual-progress { height: 4px; margin-top: 20px; overflow: hidden; border-radius: 2px; background: #e2e8f0; }
-.ritual-progress span { display: block; height: 100%; border-radius: inherit; background: var(--review-primary); transition: width 0.3s ease; }
+.ritual-progress { position: relative; height: 3px; margin-top: 28px; overflow: hidden; background: #dbe3ef; }
+.ritual-progress::before,
+.ritual-progress::after { content: ""; position: absolute; top: -3px; width: 1px; height: 9px; background: #94a3b8; }
+.ritual-progress::before { left: 0; }
+.ritual-progress::after { right: 0; }
+.ritual-progress span { position: absolute; top: 0; left: 0; display: block; width: 32%; height: 100%; background: var(--review-primary); animation: review-loading-scan 1.45s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+.ritual-progress.complete span { width: 100%; animation: none; }
 .ritual-fade-enter-active,
 .ritual-fade-leave-active { transition: opacity 0.2s ease; }
 .ritual-fade-enter-from,
@@ -490,9 +512,17 @@ function removeFile() {
   to { translate: 46px -54px; }
 }
 
+@keyframes review-loading-scan {
+  from { transform: translateX(-105%); }
+  to { transform: translateX(315%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ritual-scene::before,
-  .ritual-scene::after { animation: none; }
+  .ritual-scene::after,
+  .ritual-progress span { animation: none; }
+  .ritual-progress span { left: 34%; }
+  .ritual-progress.complete span { left: 0; }
 }
 
 @media (max-width: 1024px) {
@@ -527,7 +557,9 @@ function removeFile() {
   .contract-document { padding: 12px; }
   .contract-document pre { padding: 20px; }
   .ritual-content { padding: 20px; }
-  .ritual-timing { align-items: flex-start; flex-direction: column; }
-  .ritual-timing span { text-align: left; }
+  .ritual-content h2 { letter-spacing: 0.12em; }
+  .ritual-agents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ritual-agents > div:nth-child(3) { border-left: 0; border-top: 1px solid var(--review-border); }
+  .ritual-agents > div:nth-child(4) { border-top: 1px solid var(--review-border); }
 }
 </style>
