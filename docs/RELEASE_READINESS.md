@@ -4,14 +4,14 @@
 
 ## 自动门禁
 
-- [ ] 后端完整测试与覆盖率门槛通过
-- [ ] Ruff、Mypy、pip-audit 通过
-- [ ] 前端类型检查、生产构建与 `pnpm audit` 通过
-- [ ] Alembic 单一 head、全新升级、回退一版再升级通过
-- [ ] Docker Compose 校验、后端和前端镜像构建通过
-- [ ] 容器健康/就绪检查通过
-- [ ] Gitleaks、工作树敏感文件检查和历史密钥模式检查通过
-- [ ] GitHub Actions 在最终提交上全部通过
+- [x] 后端完整测试与覆盖率门槛通过
+- [x] Ruff、Mypy、pip-audit 通过
+- [x] 前端类型检查、生产构建与 `pnpm audit` 通过
+- [x] Alembic 单一 head、全新升级、回退一版再升级通过
+- [x] Docker Compose 校验、后端和前端镜像构建通过
+- [x] 容器健康/就绪检查通过
+- [x] Gitleaks、工作树敏感文件检查和历史密钥模式检查通过
+- [x] GitHub Actions 在最终提交上全部通过
 
 ## 已实现的安全边界
 

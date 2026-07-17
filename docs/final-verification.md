@@ -22,12 +22,12 @@
 - 覆盖率：整体 `83.81%`，由全新隔离环境中的 `pytest-cov` 真实测量，门槛为 80%。
 - Ruff 通过；Mypy 严格检查 124 个后端源文件通过；`pip check` 与 `pip-audit` 通过。
 - 前端：`vue-tsc -b` 和 `vite build` 通过，2408 个模块完成转换；`pnpm audit` 未发现已知漏洞。
-- 构建产物：Vue 核心 174.41 kB；主入口 232.87 kB；按需加载的图表 chunk 554.08 kB（gzip 189.47 kB）。Element Plus 已改为组件级自动导入。
+- 构建产物：Vue 核心 174.41 kB；主入口 232.99 kB；按需加载的图表 chunk 554.08 kB（gzip 189.47 kB）。Element Plus 已改为组件级自动导入。
 - Alembic：单一 head `20260713_0007`；全新临时 SQLite 数据库完成全链升级、回退一版和再升级；带既有用户/合同数据的 `0006 → head → 0006` 往返保持数据。
 - Docker Compose：使用非真实验证变量执行 `docker compose config --quiet` 通过。
-- Docker 镜像：未进行真实测量。本机 Docker Desktop Linux daemon 未启动，连接命名管道失败。
+- Docker 镜像与整栈：本机 Docker Desktop Linux daemon 未启动；最终提交在 GitHub Linux CI 中完成后端/前端镜像构建，PostgreSQL、Redis、backend、worker、beat、frontend 六服务启动，角色健康检查与后端就绪请求通过。
 - 本地运行服务：`/api/v1/health` 可访问；工作台、任务、风险、规则、知识、版本对比、反馈和报告下载路由均已出现在实时 OpenAPI。
-- 密钥扫描：`.env` 未被 Git 跟踪；当前树高置信模式 0 命中；历史中的一个 AWS 形状命中已确认是 pnpm 锁文件完整性哈希误报。最终结论仍以 CI Gitleaks 为准。
+- 密钥扫描：`.env` 未被 Git 跟踪；当前树高置信模式 0 命中；历史中的一个 AWS 形状命中已确认是 pnpm 锁文件完整性哈希误报；最终提交的 CI Gitleaks 通过。
 
 ## 部分完成或限制
 

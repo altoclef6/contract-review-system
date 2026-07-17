@@ -69,7 +69,7 @@
 - Ruff 通过；Mypy 严格检查 124 个源文件通过；Python 与 Node 依赖审计未发现已知漏洞。
 - 前端构建：成功，2408 modules；组件按需加载后最大图表 chunk 为 554.08 kB（gzip 189.47 kB）。
 - Alembic 单一 head；全新库升级/回退/再升级与带既有数据的往返均通过。
-- Docker：`docker compose config --quiet` 通过；后端镜像构建因本机 Docker Desktop daemon 未运行而未完成，错误为无法连接 `dockerDesktopLinuxEngine`。
+- Docker：`docker compose config --quiet` 本地通过；本机 Docker Desktop daemon 未运行，但最终提交已在 GitHub Linux CI 中完成后端/前端镜像构建、六服务启动、角色健康检查和后端就绪请求。
 
 ## 13-16. 安全、规则和样本
 
@@ -148,5 +148,5 @@ pnpm run build
 16. **知识库如何处理失效法规？** 状态与有效期过滤，默认只检索 effective，结果携带 document_id 和条号。
 17. **为什么没有声称 70% 覆盖率？** 没有实际运行 coverage 就不能填写推测数字。
 18. **前端当前风险是什么？** 图表 chunk 仍偏大，令牌仍在 `localStorage`；人工复核与版本闭环页面已经连接后端，但仍需预发布人工流程验证。
-19. **Docker 验证到什么程度？** Compose 语法通过，镜像构建和完整服务启动未真实测量。
+19. **Docker 验证到什么程度？** Compose 语法在本地通过；GitHub Linux CI 已真实构建后端/前端镜像，并完成 PostgreSQL、Redis、backend、worker、beat、frontend 启动与健康/就绪检查。生产网络、TLS、容量和恢复仍未验证。
 20. **下一步最重要是什么？** 在预发布环境完成多实例故障、备份恢复、恶意文档与权限矩阵演练，再由法务校准规则和知识来源。
