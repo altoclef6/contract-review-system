@@ -28,7 +28,9 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: pip }
-      - run: python -m pip install --upgrade "pip>=26.1.2,<27" && pip install --only-binary=:all: -r requirements-dev.txt
+      - run: >-
+          python -m pip install --upgrade "pip>=26.1.2,<27" &&
+          pip install --only-binary=:all: -r requirements-dev.txt
       - run: pytest -q --cov=contract_review --cov-fail-under=80 --cov-report=term
       - run: ruff check src tests --ignore B008,E501
       - run: mypy src/contract_review
@@ -57,13 +59,15 @@ jobs:
       JWT_SECRET_KEY: ci-only-jwt-secret-at-least-32-characters
       BOOTSTRAP_ADMIN_PASSWORD: Admin12345!
       MODEL_CREDENTIAL_ENCRYPTION_KEY: ci-only-model-key-at-least-32-characters
-      DATABASE_URL: sqlite:///${{ runner.temp }}/migration-test.db
+      DATABASE_URL: sqlite:////tmp/contract-review-migration-test.db
     steps:
       - uses: actions/checkout@v4
         with: { persist-credentials: false }
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: pip }
-      - run: python -m pip install --upgrade "pip>=26.1.2,<27" && pip install --only-binary=:all: -r requirements.txt
+      - run: >-
+          python -m pip install --upgrade "pip>=26.1.2,<27" &&
+          pip install --only-binary=:all: -r requirements.txt
       - run: test "$(python -m alembic heads | wc -l)" -eq 1
       - run: python -m alembic upgrade head
       - run: python -m alembic downgrade -1
