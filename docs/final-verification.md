@@ -18,7 +18,7 @@
 
 ## 验证结果
 
-- 后端：`100 passed, 0 failed`；测试依赖改用 `httpx2` 后无弃用警告。
+- 后端：`101 passed, 0 failed`；测试依赖改用 `httpx2` 后无弃用警告。
 - 覆盖率：整体 `83.81%`，由全新隔离环境中的 `pytest-cov` 真实测量，门槛为 80%。
 - Ruff 通过；Mypy 严格检查 124 个后端源文件通过；`pip check` 与 `pip-audit` 通过。
 - 前端：`vue-tsc -b` 和 `vite build` 通过，2408 个模块完成转换；`pnpm audit` 未发现已知漏洞。

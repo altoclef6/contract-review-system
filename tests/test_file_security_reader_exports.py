@@ -5,6 +5,7 @@ import fitz
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
+from reportlab.pdfbase import pdfmetrics
 
 from contract_review.core.config import get_settings
 from contract_review.core.exceptions import UnsafeUploadError
@@ -133,6 +134,28 @@ def test_report_exports_markdown_and_excel(tmp_path: Path) -> None:
     assert {"json", "docx", "pdf", "markdown", "xlsx"}.issubset(exports)
     assert exports["markdown"].read_text(encoding="utf-8").startswith("# 合同智能审查报告")
     assert exports["xlsx"].stat().st_size > 0
+
+
+def test_pdf_export_uses_portable_font_fallback(tmp_path: Path, monkeypatch) -> None:
+    registered_fonts = pdfmetrics.getRegisteredFontNames()
+    monkeypatch.setattr(
+        pdfmetrics,
+        "getRegisteredFontNames",
+        lambda: [name for name in registered_fonts if name != "ChineseFont"],
+    )
+    monkeypatch.setattr(Path, "exists", lambda _path: False)
+
+    path = ReportService(tmp_path).save_pdf_report(
+        "portable_font",
+        {
+            "审查编号": "portable_font",
+            "文件名": "合同.pdf",
+            "总体风险等级": "低风险",
+            "审查摘要": "中文导出不依赖宿主机字体。",
+        },
+    )
+
+    assert path.read_bytes().startswith(b"%PDF-")
 
 
 def test_pdf_reader_locates_clause(tmp_path: Path, monkeypatch) -> None:

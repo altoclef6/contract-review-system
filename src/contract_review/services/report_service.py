@@ -11,7 +11,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+from reportlab.pdfbase.ttfonts import TTFError, TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
@@ -145,18 +146,18 @@ class ReportService:
 
     def save_pdf_report(self, review_id: str, report: dict[str, Any]) -> Path:
         path = self.report_dir / f"{review_id}.pdf"
-        self._register_chinese_font()
+        font_name = self._register_chinese_font()
         styles = getSampleStyleSheet()
         normal = ParagraphStyle(
-            "ChineseNormal", parent=styles["Normal"], fontName="ChineseFont", fontSize=9, leading=15
+            "ChineseNormal", parent=styles["Normal"], fontName=font_name, fontSize=9, leading=15
         )
         title = ParagraphStyle(
-            "ChineseTitle", parent=styles["Title"], fontName="ChineseFont", fontSize=18, leading=24
+            "ChineseTitle", parent=styles["Title"], fontName=font_name, fontSize=18, leading=24
         )
         heading = ParagraphStyle(
             "ChineseHeading",
             parent=styles["Heading2"],
-            fontName="ChineseFont",
+            fontName=font_name,
             fontSize=13,
             leading=18,
         )
@@ -169,7 +170,7 @@ class ReportService:
             ["风险分", str(score.get("风险分", "-"))],
             ["安全分", str(score.get("安全分", "-"))],
         ]
-        story.append(self._table(summary_rows))
+        story.append(self._table(summary_rows, font_name))
         story.extend(
             [
                 Spacer(1, 10),
@@ -204,12 +205,12 @@ class ReportService:
         document.build(story)
         return path
 
-    def _table(self, rows: list[list[str]]) -> Table:
+    def _table(self, rows: list[list[str]], font_name: str) -> Table:
         table = Table(rows, colWidths=[32 * mm, 130 * mm])
         table.setStyle(
             TableStyle(
                 [
-                    ("FONTNAME", (0, 0), (-1, -1), "ChineseFont"),
+                    ("FONTNAME", (0, 0), (-1, -1), font_name),
                     ("FONTSIZE", (0, 0), (-1, -1), 9),
                     ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#9aa4b2")),
                     ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#eef2f7")),
@@ -221,16 +222,25 @@ class ReportService:
         )
         return table
 
-    def _register_chinese_font(self) -> None:
+    def _register_chinese_font(self) -> str:
         if "ChineseFont" in pdfmetrics.getRegisteredFontNames():
-            return
+            return "ChineseFont"
         candidates = [
             Path("C:/Windows/Fonts/msyh.ttc"),
             Path("C:/Windows/Fonts/simhei.ttf"),
             Path("C:/Windows/Fonts/simsun.ttc"),
+            Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+            Path("/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf"),
         ]
         for candidate in candidates:
             if candidate.exists():
-                pdfmetrics.registerFont(TTFont("ChineseFont", str(candidate)))
-                return
-        pdfmetrics.registerFont(TTFont("ChineseFont", "Helvetica"))
+                try:
+                    pdfmetrics.registerFont(TTFont("ChineseFont", str(candidate)))
+                except (OSError, TTFError):
+                    continue
+                return "ChineseFont"
+
+        fallback = "STSong-Light"
+        if fallback not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(UnicodeCIDFont(fallback))
+        return fallback

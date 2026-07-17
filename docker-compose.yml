@@ -93,6 +93,8 @@ services:
     <<: *app-security
     build: .
     command: celery -A contract_review.tasks.celery_app:celery_app worker --loglevel=INFO --pool=solo
+    healthcheck:
+      disable: true
     environment: *backend-env
     volumes:
       - app_data:/app/data
@@ -105,6 +107,8 @@ services:
     <<: *app-security
     build: .
     command: celery -A contract_review.tasks.celery_app:celery_app beat --loglevel=INFO --schedule=/app/data/celerybeat-schedule
+    healthcheck:
+      disable: true
     environment: *backend-env
     volumes:
       - app_data:/app/data
