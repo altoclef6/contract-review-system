@@ -108,7 +108,7 @@ class ReportService:
                 sheet.column_dimensions[letter].width = min(
                     60, max(12, max(len(str(cell.value or "")) for cell in column) + 2)
                 )
-        workbook.save(path)
+        workbook.save(str(path))
         return path
 
     def save_docx_report(self, review_id: str, report: dict[str, Any]) -> Path:
@@ -140,7 +140,7 @@ class ReportService:
             doc.add_paragraph(
                 f"{item.get('来源', '')}：{item.get('内容', '')}", style="List Bullet"
             )
-        doc.save(path)
+        doc.save(str(path))
         return path
 
     def save_pdf_report(self, review_id: str, report: dict[str, Any]) -> Path:

@@ -4,13 +4,14 @@ from pathlib import Path
 import fitz
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from contract_review.core.config import get_settings
 from contract_review.core.exceptions import UnsafeUploadError
 from contract_review.main import create_app
 from contract_review.services.history_service import HistoryService, build_history_item
 from contract_review.services.report_service import ReportService
-from contract_review.utils.file_utils import validate_file_signature
+from contract_review.utils.file_utils import normalize_original_filename, validate_file_signature
 
 
 def _configure(monkeypatch, tmp_path: Path) -> None:
@@ -38,6 +39,12 @@ def test_file_signature_rejects_disguised_executable(tmp_path: Path) -> None:
         validate_file_signature(fake_pdf)
 
 
+def test_original_filename_removes_paths_controls_and_spoofing_marks() -> None:
+    assert normalize_original_filename("../目录/合同\u202egnp.pdf") == "合同gnp.pdf"
+    assert normalize_original_filename("C:\\temp\\合同\r\n.pdf") == "合同.pdf"
+    assert len(normalize_original_filename(f"{'长' * 300}.pdf")) == 260
+
+
 def test_docx_rejects_archive_path_traversal(tmp_path: Path) -> None:
     malicious = tmp_path / "contract.docx"
     with zipfile.ZipFile(malicious, "w") as archive:
@@ -54,6 +61,53 @@ def test_docx_rejects_non_office_zip(tmp_path: Path) -> None:
         archive.writestr("payload.exe", b"payload")
     with pytest.raises(UnsafeUploadError, match="有效的 DOCX"):
         validate_file_signature(fake_docx)
+
+
+def test_docx_rejects_external_relationships_and_macros(tmp_path: Path) -> None:
+    external = tmp_path / "external.docx"
+    with zipfile.ZipFile(external, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types />")
+        archive.writestr("word/document.xml", "<document />")
+        archive.writestr(
+            "word/_rels/document.xml.rels",
+            '<Relationships><Relationship TargetMode="External" Target="https://example.test" /></Relationships>',
+        )
+    with pytest.raises(UnsafeUploadError, match="外部资源"):
+        validate_file_signature(external)
+
+    alternate_external = tmp_path / "alternate-external.docx"
+    with zipfile.ZipFile(alternate_external, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types />")
+        archive.writestr("word/document.xml", "<document />")
+        archive.writestr(
+            "word/_rels/document.xml.rels",
+            "<Relationships><Relationship targetmode = 'EXTERNAL' Target = 'https://example.test' /></Relationships>",
+        )
+    with pytest.raises(UnsafeUploadError, match="外部资源"):
+        validate_file_signature(alternate_external)
+
+    macro = tmp_path / "macro.docx"
+    with zipfile.ZipFile(macro, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types />")
+        archive.writestr("word/document.xml", "<document />")
+        archive.writestr("word/vbaProject.bin", b"macro")
+    with pytest.raises(UnsafeUploadError, match="宏"):
+        validate_file_signature(macro)
+
+
+def test_file_signature_uses_configured_page_and_pixel_limits(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "two-pages.pdf"
+    with fitz.open() as document:
+        document.new_page()
+        document.new_page()
+        document.save(pdf_path)
+    with pytest.raises(UnsafeUploadError, match="页数"):
+        validate_file_signature(pdf_path, max_pdf_pages=1)
+
+    image_path = tmp_path / "image.png"
+    Image.new("RGB", (2, 2)).save(image_path)
+    with pytest.raises(UnsafeUploadError, match="像素"):
+        validate_file_signature(image_path, max_image_pixels=3)
 
 
 def test_report_exports_markdown_and_excel(tmp_path: Path) -> None:

@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 export const api = axios.create({ baseURL: '/api/v1', timeout: 120000 })
+let refreshInFlight: Promise<string> | null = null
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
@@ -17,8 +18,20 @@ api.interceptors.response.use(
       if (refreshToken) {
         original._retried = true
         try {
-          const response = await axios.post('/api/v1/auth/refresh', { refresh_token: refreshToken })
-          localStorage.setItem('access_token', response.data.data.access_token)
+          if (!refreshInFlight) {
+            refreshInFlight = axios
+              .post('/api/v1/auth/refresh', { refresh_token: refreshToken })
+              .then((response) => {
+                localStorage.setItem('access_token', response.data.data.access_token)
+                localStorage.setItem('refresh_token', response.data.data.refresh_token)
+                return response.data.data.access_token as string
+              })
+              .finally(() => {
+                refreshInFlight = null
+              })
+          }
+          const accessToken = await refreshInFlight
+          original.headers.Authorization = `Bearer ${accessToken}`
           return api(original)
         } catch {
           localStorage.removeItem('access_token')

@@ -94,9 +94,13 @@ class RiskService:
             return records
         with self._lock:
             current = self._load_local()
-            existing = {(item.review_id, item.source_risk_id) for item in current}
+            existing_keys: set[tuple[str, str | None]] = {
+                (item.review_id, item.source_risk_id) for item in current
+            }
             additions = [
-                item for item in records if (item.review_id, item.source_risk_id) not in existing
+                item
+                for item in records
+                if (item.review_id, item.source_risk_id) not in existing_keys
             ]
             if additions:
                 self._save_local(current + additions)
@@ -355,7 +359,9 @@ class RiskService:
         created_by: str | None,
         now: datetime,
     ) -> RiskRecord:
-        raw_location = item.get("原文定位") if isinstance(item.get("原文定位"), dict) else {}
+        raw_location: dict[str, Any] = (
+            item["原文定位"] if isinstance(item.get("原文定位"), dict) else {}
+        )
         source_value = str(item.get("来源") or item.get("source") or "deterministic_rule")
         ai_involved = "AI" in source_value or source_value == "llm_analysis"
         source = RiskSource.llm_analysis if ai_involved else RiskSource.deterministic_rule

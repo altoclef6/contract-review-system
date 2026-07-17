@@ -5,7 +5,7 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import Any, cast
 
 from contract_review.agents.classifier import contract_classifier_node
 from contract_review.agents.compliance_checker import compliance_checker_node
@@ -16,6 +16,7 @@ from contract_review.agents.refiner import refiner_node
 from contract_review.agents.rule_checker import rule_checker_node
 from contract_review.agents.validator import validator_node
 from contract_review.core.config import Settings
+from contract_review.graph.state import ContractReviewState
 from contract_review.schemas.review import ReviewResponse
 from contract_review.services.document_loader import DocumentLoader
 from contract_review.services.history_service import HistoryService, build_history_item
@@ -54,7 +55,7 @@ class ReviewService:
         prompt_templates = PromptTemplateService(self.settings.prompt_template_data_dir).resolve(
             contract_type
         )
-        initial_state = {
+        initial_state: ContractReviewState = {
             "review_id": review_id,
             "file_path": str(file_path),
             "file_name": original_file_name,
@@ -64,8 +65,9 @@ class ReviewService:
             "contract_type": contract_type,
             "prompt_templates": prompt_templates,
             "errors": [],
-            "stage_callback": stage_callback,
         }
+        if stage_callback is not None:
+            initial_state["stage_callback"] = stage_callback
         try:
             result = await self.graph.ainvoke(initial_state)
         except Exception:
@@ -147,9 +149,12 @@ class ReviewService:
             errors=result.get("errors", []),
         )
 
-    async def _run_deterministic_fallback(self, initial_state: dict[str, Any]) -> dict[str, Any]:
-        state = dict(initial_state)
-        state["llm_config"] = {"disabled": True}
+    async def _run_deterministic_fallback(
+        self, initial_state: ContractReviewState
+    ) -> ContractReviewState:
+        state = cast(ContractReviewState, dict(initial_state))
+        disabled_config: dict[str, Any] = {"disabled": True}
+        state["llm_config"] = disabled_config
         # LLM helpers already return a safe empty result when no provider is available.
         # Running the explicit nodes preserves deterministic extraction and rule findings.
         for node in (
@@ -164,7 +169,7 @@ class ReviewService:
         ):
             update = await node(state)
             if isinstance(update, dict):
-                state.update(update)
+                state.update(cast(ContractReviewState, update))
         return state
 
     def _attach_text_locations(

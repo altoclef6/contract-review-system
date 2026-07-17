@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from contract_review.core.config import get_settings
 from contract_review.graph.graph_builder import build_contract_review_graph
 from contract_review.services.contract_service import ContractService
 from contract_review.services.document_loader import DocumentLoader
 from contract_review.services.notification_service import NotificationService
-from contract_review.services.review_task_service import ReviewTaskService
+from contract_review.services.review_task_service import ReviewTaskService, ReviewTaskUnavailable
 from contract_review.tasks.celery_app import celery_app
 
 
@@ -35,9 +36,12 @@ def export_report(review_id: str) -> dict[str, str]:
     soft_time_limit=840,
     time_limit=900,
 )
-def run_review_task(self, task_id: str) -> dict[str, str | None]:
+def run_review_task(self: Any, task_id: str) -> dict[str, str | None]:
     service = ReviewTaskService(get_settings(), graph=build_contract_review_graph())
-    service.set_celery_task_id(task_id, str(self.request.id))
+    try:
+        service.set_celery_task_id(task_id, str(self.request.id))
+    except ReviewTaskUnavailable as exc:
+        raise ConnectionError("review task state backend unavailable") from exc
     task = asyncio.run(service.execute_task(task_id))
     return {
         "task_id": task.task_id,
@@ -58,6 +62,8 @@ def send_expiration_reminders(days: int = 30) -> dict[str, int]:
     notifications = NotificationService(settings.notification_data_dir)
     sent = 0
     for contract in contracts:
+        if contract.expires_at is None:
+            continue
         today = datetime.now(timezone.utc).date()
         already_sent = any(
             item.type == "contract_expiring"

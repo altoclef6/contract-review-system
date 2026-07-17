@@ -25,13 +25,24 @@ class ChatService:
         self.store = JsonDocumentStore(self.path, "chat_sessions")
         self.history = HistoryService(review_data_dir)
 
-    def create(self, owner_id: str, review_id: str | None, title: str | None) -> ChatSessionPublic:
-        if review_id and self.history.get(review_id) is None:
-            raise ChatServiceError("审查记录不存在")
+    def create(
+        self,
+        owner_id: str,
+        review_id: str | None,
+        title: str | None,
+        *,
+        allow_all_reviews: bool = False,
+    ) -> ChatSessionPublic:
+        if review_id:
+            review = self.history.get(review_id)
+            if review is None or (
+                not allow_all_reviews and review.get("created_by") != owner_id
+            ):
+                raise ChatServiceError("审查记录不存在或无权访问")
         with self._lock:
             records = self._load()
             now = self._now()
-            record = {
+            record: dict[str, Any] = {
                 "id": f"chat_{uuid4().hex}",
                 "owner_id": owner_id,
                 "review_id": review_id,

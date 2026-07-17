@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import fitz
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -19,7 +20,7 @@ from contract_review.services.reader_workspace_service import (
 router = APIRouter()
 
 
-def _review_record(request: Request, review_id: str, user: UserPublic) -> dict:
+def _review_record(request: Request, review_id: str, user: UserPublic) -> dict[str, Any]:
     settings = request.app.state.settings
     record = HistoryService(settings.report_dir.parent).get(review_id)
     if not record or (user.role != UserRole.admin and record.get("created_by") != user.id):
@@ -27,7 +28,7 @@ def _review_record(request: Request, review_id: str, user: UserPublic) -> dict:
     return record
 
 
-def _source_pdf(request: Request, record: dict) -> Path:
+def _source_pdf(request: Request, record: dict[str, Any]) -> Path:
     settings = request.app.state.settings
     if not record.get("source_file_path"):
         raise HTTPException(status_code=404, detail="合同源文件不存在")

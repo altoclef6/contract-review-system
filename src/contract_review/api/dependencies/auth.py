@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
+from ipaddress import ip_address, ip_network
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -10,6 +11,7 @@ from contract_review.core.config import Settings, get_settings
 from contract_review.core.security import TokenError, create_token, decode_token
 from contract_review.schemas.auth import ROLE_PERMISSIONS, Permission, UserPublic, UserRole
 from contract_review.services.audit_service import AuditService
+from contract_review.services.refresh_token_service import RefreshTokenService
 from contract_review.services.user_service import UserService
 
 bearer_scheme = HTTPBearer(
@@ -27,7 +29,19 @@ def get_audit_service(settings: Settings = Depends(get_settings)) -> AuditServic
     return AuditService(settings.security_data_dir)
 
 
-def issue_token_pair(user: UserPublic, settings: Settings) -> tuple[str, str, int]:
+def get_refresh_token_service(
+    settings: Settings = Depends(get_settings),
+) -> RefreshTokenService:
+    return RefreshTokenService(settings)
+
+
+def issue_token_pair(
+    user: UserPublic,
+    settings: Settings,
+    *,
+    refresh_token_id: str,
+    refresh_family_id: str,
+) -> tuple[str, str, int]:
     secret = settings.jwt_secret_key.get_secret_value()
     access_minutes = settings.jwt_access_token_minutes
     access_token = create_token(
@@ -45,6 +59,8 @@ def issue_token_pair(user: UserPublic, settings: Settings) -> tuple[str, str, in
         token_type="refresh",
         expires_delta=timedelta(days=settings.jwt_refresh_token_days),
         token_version=user.token_version,
+        token_id=refresh_token_id,
+        family_id=refresh_family_id,
     )
     return access_token, refresh_token, access_minutes * 60
 
@@ -75,7 +91,7 @@ async def get_current_user(
     return user
 
 
-def require_role(*roles: UserRole) -> Callable[[UserPublic], UserPublic]:
+def require_role(*roles: UserRole) -> Callable[[UserPublic], Awaitable[UserPublic]]:
     async def dependency(user: UserPublic = Depends(get_current_user)) -> UserPublic:
         if user.role not in roles:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
@@ -84,7 +100,7 @@ def require_role(*roles: UserRole) -> Callable[[UserPublic], UserPublic]:
     return dependency
 
 
-def require_permission(permission: Permission) -> Callable[[UserPublic], UserPublic]:
+def require_permission(permission: Permission) -> Callable[[UserPublic], Awaitable[UserPublic]]:
     async def dependency(user: UserPublic = Depends(get_current_user)) -> UserPublic:
         if permission not in ROLE_PERMISSIONS[user.role]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
@@ -93,8 +109,18 @@ def require_permission(permission: Permission) -> Callable[[UserPublic], UserPub
     return dependency
 
 
-def get_client_ip(request: Request) -> str | None:
+def get_client_ip(request: Request, settings: Settings) -> str | None:
+    direct = request.client.host if request.client else None
     forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
+    trusted_peer = False
+    if settings.trust_proxy_headers and direct:
+        try:
+            peer = ip_address(direct)
+            trusted_peer = any(
+                peer in ip_network(cidr, strict=False) for cidr in settings.trusted_proxy_cidrs
+            )
+        except ValueError:
+            trusted_peer = False
+    if forwarded_for and trusted_peer:
         return forwarded_for.split(",", 1)[0].strip()
-    return request.client.host if request.client else None
+    return direct

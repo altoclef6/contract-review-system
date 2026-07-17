@@ -5,7 +5,7 @@ import logging
 import re
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
 from contract_review.core.config import get_settings
 from contract_review.core.exceptions import LLMConfigurationError
@@ -127,7 +127,7 @@ async def call_llm_text(
         model = create_chat_model(settings, effective_llm_config)
     except LLMConfigurationError:
         return None
-    request_messages = [SystemMessage(content=system_prompt)]
+    request_messages: list[BaseMessage] = [SystemMessage(content=system_prompt)]
     used = 0
     for role, content in messages:
         bounded = content[: max(0, max_chars - used)]

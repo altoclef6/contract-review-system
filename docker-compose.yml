@@ -1,5 +1,24 @@
+x-app-security: &app-security
+  read_only: true
+  tmpfs:
+    - /tmp:size=256m,mode=1777
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+  mem_limit: 2g
+  cpus: 2.0
+  stop_grace_period: 30s
+
+x-data-service: &data-service
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+  mem_limit: 2g
+  cpus: 2.0
+  stop_grace_period: 30s
+
 services:
   postgres:
+    <<: *data-service
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: contract_review
@@ -15,6 +34,9 @@ services:
     restart: unless-stopped
 
   redis:
+    <<: *data-service
+    mem_limit: 1g
+    cpus: 1.0
     image: redis:7.4-alpine
     command: redis-server --appendonly yes
     volumes:
@@ -27,6 +49,7 @@ services:
     restart: unless-stopped
 
   backend:
+    <<: *app-security
     build: .
     environment: &backend-env
       ENVIRONMENT: prod
@@ -50,21 +73,24 @@ services:
       LLM_MODEL_NAME: ${LLM_MODEL_NAME:-deepseek-chat}
       TESSERACT_CMD: /usr/bin/tesseract
       LIBREOFFICE_CMD: /usr/bin/libreoffice
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080}
-      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-localhost,127.0.0.1}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?Set ALLOWED_ORIGINS to the HTTPS frontend origin}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:?Set TRUSTED_HOSTS to the public application host}
+      TRUST_PROXY_HEADERS: "true"
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-172.16.0.0/12}
     volumes:
       - app_data:/app/data
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      test: ["CMD", "python", "-c", "import os, urllib.request; request=urllib.request.Request('http://127.0.0.1:8000/api/v1/health/ready', headers={'Host': os.environ['TRUSTED_HOSTS'].split(',')[0]}); urllib.request.urlopen(request, timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 12
     restart: unless-stopped
 
   worker:
+    <<: *app-security
     build: .
     command: celery -A contract_review.tasks.celery_app:celery_app worker --loglevel=INFO --pool=solo
     environment: *backend-env
@@ -76,8 +102,9 @@ services:
     restart: unless-stopped
 
   beat:
+    <<: *app-security
     build: .
-    command: celery -A contract_review.tasks.celery_app:celery_app beat --loglevel=INFO
+    command: celery -A contract_review.tasks.celery_app:celery_app beat --loglevel=INFO --schedule=/app/data/celerybeat-schedule
     environment: *backend-env
     volumes:
       - app_data:/app/data
@@ -87,9 +114,19 @@ services:
     restart: unless-stopped
 
   frontend:
+    <<: *app-security
     build: ./frontend
     ports:
-      - "8080:80"
+      - "8080:8080"
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/cache/nginx:size=64m,mode=0755
+      - /var/run:size=16m,mode=0755
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
     depends_on:
       backend: { condition: service_healthy }
     restart: unless-stopped

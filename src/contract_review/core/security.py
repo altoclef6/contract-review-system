@@ -54,6 +54,8 @@ def create_token(
     token_type: TokenType,
     expires_delta: timedelta,
     token_version: int = 0,
+    token_id: str | None = None,
+    family_id: str | None = None,
 ) -> str:
     now = datetime.now(timezone.utc)
     payload = {
@@ -64,6 +66,10 @@ def create_token(
         "exp": int((now + expires_delta).timestamp()),
         "ver": token_version,
     }
+    if token_id:
+        payload["jti"] = token_id
+    if family_id:
+        payload["family"] = family_id
     header = {"alg": "HS256", "typ": "JWT"}
     signing_input = ".".join(
         [

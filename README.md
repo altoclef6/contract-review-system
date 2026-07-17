@@ -128,19 +128,22 @@ docker compose ps
 
 ```powershell
 $env:PYTHONPATH="src"
-python -m pytest -q --cov=contract_review --cov-report=term
-python scripts/evaluate_review.py
-python scripts/benchmark_ablation.py
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pytest -q --cov=contract_review --cov-report=term --cov-fail-under=80
+.\.venv\Scripts\python.exe scripts/evaluate_review.py
+.\.venv\Scripts\python.exe scripts/benchmark_ablation.py
 Set-Location frontend
+pnpm install --frozen-lockfile --ignore-scripts
 pnpm run build
+pnpm audit --registry=https://registry.npmjs.org --audit-level moderate
 ```
 
-2026-07-13 本地验证：
+2026-07-17 隔离干净环境验证：
 
-- 后端测试：87 项，87 通过，0 失败。
-- 后端整体覆盖率：85%。
-- 前端 typecheck/build：通过；入口 JS 从 1,087.02 kB 拆分为 64.86 kB，Element Plus 与 ECharts 仍是较大的独立缓存 chunk。
-- Alembic：单一 head `20260713_0007`，全新 SQLite 验证库可升级到 head。
+- 后端测试：99 项，99 通过，0 失败；整体覆盖率 83.79%，门槛 80%。
+- Ruff 通过；Mypy 严格检查 124 个后端源文件通过；`pip check` 与 `pip-audit` 均未发现问题。
+- 前端 `vue-tsc -b`/生产构建通过，转换 2408 个模块；最大产物为按需加载的图表 chunk 554.08 kB（gzip 189.47 kB），`pnpm audit` 未发现已知漏洞。
+- Alembic：单一 head `20260713_0007`；全新 SQLite 验证库完成升级、回退一版和再升级；带既有用户及合同数据的 `0006 → head → 0006` 往返保持数据。
 - Docker Compose 语法：通过；当前验证机器 Docker Desktop daemon 未启动，因此完整镜像构建未进行真实测量。
 
 ## 评测结果

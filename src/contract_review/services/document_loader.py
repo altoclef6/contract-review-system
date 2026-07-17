@@ -57,7 +57,7 @@ class DocumentLoader:
     def _load_docx(self, file_path: Path) -> str:
         from docx import Document
 
-        document = Document(file_path)
+        document = Document(str(file_path))
         paragraphs = [paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()]
         table_text = []
         for table in document.tables:
@@ -79,7 +79,12 @@ class DocumentLoader:
         config = (
             f'--tessdata-dir "{self.settings.tessdata_dir}"' if self.settings.tessdata_dir else ""
         )
-        return pytesseract.image_to_string(image, lang=self.settings.ocr_languages, config=config)
+        return str(pytesseract.image_to_string(
+            image,
+            lang=self.settings.ocr_languages,
+            config=config,
+            timeout=self.settings.ocr_timeout_seconds,
+        ))
 
     def _load_legacy_doc(self, file_path: Path) -> str:
         command = self.settings.libreoffice_cmd or shutil.which("soffice")
@@ -88,10 +93,14 @@ class DocumentLoader:
                 "读取旧版 .doc 需要安装 LibreOffice，并配置 LIBREOFFICE_CMD"
             )
         with tempfile.TemporaryDirectory() as output_dir:
+            profile_dir = Path(output_dir) / "profile"
             completed = subprocess.run(
                 [
                     command,
+                    f"-env:UserInstallation={profile_dir.resolve().as_uri()}",
                     "--headless",
+                    "--norestore",
+                    "--nodefault",
                     "--convert-to",
                     "docx",
                     "--outdir",

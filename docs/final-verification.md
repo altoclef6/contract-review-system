@@ -1,6 +1,6 @@
 # 最终验收记录
 
-验收日期：2026-07-13
+最近复核日期：2026-07-17
 
 > AI辅助合同风险审查，不构成正式法律意见，重要合同应由专业法务或律师结合交易背景进行人工复核。
 
@@ -18,15 +18,16 @@
 
 ## 验证结果
 
-- 后端：`87 passed, 0 failed, 1 deprecation warning`。
-- 覆盖率：整体 `85%`，由 `pytest-cov` 真实测量。
-- 前端：`vue-tsc -b` 和 `vite build` 通过，2290 个模块完成转换。
-- 构建产物：入口 JS 64.86 kB；Vue 核心 109.58 kB；ECharts 519.25 kB；Element Plus 912.90 kB。后两项为独立缓存 chunk，仍有大 chunk 警告。
-- Alembic：单一 head `20260713_0007`；全新临时 SQLite 数据库成功执行全部 7 段迁移。
+- 后端：`99 passed, 0 failed`；测试依赖改用 `httpx2` 后无弃用警告。
+- 覆盖率：整体 `83.79%`，由全新隔离环境中的 `pytest-cov` 真实测量，门槛为 80%。
+- Ruff 通过；Mypy 严格检查 124 个后端源文件通过；`pip check` 与 `pip-audit` 通过。
+- 前端：`vue-tsc -b` 和 `vite build` 通过，2408 个模块完成转换；`pnpm audit` 未发现已知漏洞。
+- 构建产物：Vue 核心 174.41 kB；主入口 232.87 kB；按需加载的图表 chunk 554.08 kB（gzip 189.47 kB）。Element Plus 已改为组件级自动导入。
+- Alembic：单一 head `20260713_0007`；全新临时 SQLite 数据库完成全链升级、回退一版和再升级；带既有用户/合同数据的 `0006 → head → 0006` 往返保持数据。
 - Docker Compose：使用非真实验证变量执行 `docker compose config --quiet` 通过。
 - Docker 镜像：未进行真实测量。本机 Docker Desktop Linux daemon 未启动，连接命名管道失败。
 - 本地运行服务：`/api/v1/health` 可访问；工作台、任务、风险、规则、知识、版本对比、反馈和报告下载路由均已出现在实时 OpenAPI。
-- 密钥扫描：`.env` 未被 Git 跟踪；排除 `.env` 和运行数据后的疑似真实密钥文件数为 0。
+- 密钥扫描：`.env` 未被 Git 跟踪；当前树高置信模式 0 命中；历史中的一个 AWS 形状命中已确认是 pnpm 锁文件完整性哈希误报。最终结论仍以 CI Gitleaks 为准。
 
 ## 部分完成或限制
 
@@ -35,7 +36,7 @@
 - OCR 坐标取决于解析引擎。缺失坐标时界面只展示真实文本偏移，不伪造 PDF 坐标。
 - 默认 Docker Compose 使用单个 `solo` worker，适合首次部署验证；扩大并发前需在预发布环境验证共享任务存储竞争、队列积压和取消时序。
 - Legal 的部门/组织授权范围仍需结合实际组织结构建模；当前依照现有角色和资源所有权规则。
-- Element Plus 和 ECharts 仍是大依赖，已拆成缓存 chunk，但尚未完成组件级自动导入改造。
+- ECharts 仍是最大单一图表依赖；已采用核心模块与所需图表类型导入，并只在仪表盘路由加载。
 
 ## 云端上线前人工检查
 
@@ -48,7 +49,7 @@
 
 ## 本地恢复方法
 
-当前修改尚未提交。恢复前应先保存需要保留的本地工作；不要直接执行 `git reset --hard`、`git clean` 或强制 checkout。建议审阅 `git diff` 后按功能拆分本地 commit，再以 commit 为回滚单位执行 `git revert <commit>`。
+恢复前应先保存需要保留的本地工作；不要直接执行 `git reset --hard`、`git clean` 或强制 checkout。发布候选分支提交后应以 `git revert <commit>` 为回滚单位，并按备份恢复文档处理数据库与数据卷。
 
 ## 建议提交拆分（未执行）
 

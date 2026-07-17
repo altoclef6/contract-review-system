@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -85,8 +86,12 @@ class ReaderWorkspaceService:
     def build(self, record: dict[str, Any]) -> ReaderWorkspace:
         report = self._load_report(record)
         contract_text = self._load_contract_text(record)
-        raw_risks = report.get("风险点") if isinstance(report.get("风险点"), list) else []
-        knowledge_hits = report.get("依据检索") if isinstance(report.get("依据检索"), list) else []
+        raw_risks: list[Any] = (
+            report["风险点"] if isinstance(report.get("风险点"), list) else []
+        )
+        knowledge_hits: list[Any] = (
+            report["依据检索"] if isinstance(report.get("依据检索"), list) else []
+        )
         suggestions = {
             str(item.get("对应风险编号")): item
             for item in report.get("修改建议", [])
@@ -128,6 +133,11 @@ class ReaderWorkspaceService:
         score = report.get("风险评分")
         risk_score = score.get("风险分") if isinstance(score, dict) else None
         source_path = Path(str(record.get("source_file_path") or ""))
+        reviewed_value = record.get("created_at")
+        if isinstance(reviewed_value, str):
+            reviewed_value = datetime.fromisoformat(reviewed_value.replace("Z", "+00:00"))
+        if not isinstance(reviewed_value, datetime):
+            raise ReaderWorkspaceError("审查记录缺少有效创建时间")
         summary = ReaderWorkspaceSummary(
             review_id=str(record.get("review_id")),
             contract_id=contract_id,
@@ -136,7 +146,7 @@ class ReaderWorkspaceService:
             contract_type=str(record.get("contract_type") or "general"),
             contract_version=contract_version,
             status="completed",
-            reviewed_at=record.get("created_at"),
+            reviewed_at=reviewed_value,
             operator_name=operator_name,
             overall_risk_level=_optional_string(report.get("总体风险等级")),
             risk_score=float(risk_score) if isinstance(risk_score, (int, float)) else None,
@@ -193,7 +203,9 @@ class ReaderWorkspaceService:
         source_risk_id = str(item.get("风险编号") or item.get("risk_id") or "未编号")
         saved = persisted.get(source_risk_id)
         clause = str(item.get("相关条款") or item.get("contract_text") or "")
-        raw_location = item.get("原文定位") if isinstance(item.get("原文定位"), dict) else {}
+        raw_location: dict[str, Any] = (
+            item["原文定位"] if isinstance(item.get("原文定位"), dict) else {}
+        )
         location = resolve_text_location(
             contract_text,
             clause or str(raw_location.get("定位文本") or ""),
