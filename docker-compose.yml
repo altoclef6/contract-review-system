@@ -94,7 +94,15 @@ services:
     build: .
     command: celery -A contract_review.tasks.celery_app:celery_app worker --loglevel=INFO --pool=solo
     healthcheck:
-      disable: true
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A contract_review.tasks.celery_app:celery_app inspect ping --timeout=5 | grep -q pong",
+        ]
+      interval: 10s
+      timeout: 8s
+      start_period: 20s
+      retries: 12
     environment: *backend-env
     volumes:
       - app_data:/app/data
@@ -108,7 +116,17 @@ services:
     build: .
     command: celery -A contract_review.tasks.celery_app:celery_app beat --loglevel=INFO --schedule=/app/data/celerybeat-schedule
     healthcheck:
-      disable: true
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from contract_review.tasks.celery_app import celery_app; connection = celery_app.connection_for_read(); connection.ensure_connection(max_retries=1); connection.release()",
+        ]
+      interval: 10s
+      timeout: 8s
+      start_period: 20s
+      retries: 12
     environment: *backend-env
     volumes:
       - app_data:/app/data
