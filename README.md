@@ -140,7 +140,7 @@ pnpm audit --registry=https://registry.npmjs.org --audit-level moderate
 
 2026-07-17 隔离干净环境验证：
 
-- 后端测试：99 项，99 通过，0 失败；整体覆盖率 83.79%，门槛 80%。
+- 后端测试：100 项，100 通过，0 失败；整体覆盖率 83.81%，门槛 80%。
 - Ruff 通过；Mypy 严格检查 124 个后端源文件通过；`pip check` 与 `pip-audit` 均未发现问题。
 - 前端 `vue-tsc -b`/生产构建通过，转换 2408 个模块；最大产物为按需加载的图表 chunk 554.08 kB（gzip 189.47 kB），`pnpm audit` 未发现已知漏洞。
 - Alembic：单一 head `20260713_0007`；全新 SQLite 验证库完成升级、回退一版和再升级；带既有用户及合同数据的 `0006 → head → 0006` 往返保持数据。

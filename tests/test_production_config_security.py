@@ -61,3 +61,18 @@ def test_test_environment_does_not_read_dotenv(tmp_path, monkeypatch) -> None:
     )
 
     assert settings.app_name != "must-not-be-read"
+
+
+def test_list_settings_accept_comma_separated_environment(monkeypatch) -> None:
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://one.example,https://two.example")
+    monkeypatch.setenv("TRUSTED_HOSTS", "one.example,two.example")
+    monkeypatch.setenv("TRUSTED_PROXY_CIDRS", "10.0.0.0/8,192.168.0.0/16")
+
+    settings = Settings(
+        jwt_secret_key="test-secret",
+        bootstrap_admin_password="Admin12345!",
+    )
+
+    assert settings.allowed_origins == ["https://one.example", "https://two.example"]
+    assert settings.trusted_hosts == ["one.example", "two.example"]
+    assert settings.trusted_proxy_cidrs == ["10.0.0.0/8", "192.168.0.0/16"]

@@ -4,10 +4,10 @@ import os
 from functools import lru_cache
 from ipaddress import ip_network
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     environment: Literal["local", "dev", "test", "prod"] = "local"
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
-    allowed_origins: list[str] = Field(
+    allowed_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"]
     )
     log_level: str = "INFO"
@@ -76,8 +76,8 @@ class Settings(BaseSettings):
     login_max_attempts: int = 5
     login_window_seconds: int = 300
     trust_proxy_headers: bool = False
-    trusted_proxy_cidrs: list[str] = Field(default_factory=list)
-    trusted_hosts: list[str] = Field(
+    trusted_proxy_cidrs: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    trusted_hosts: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["localhost", "127.0.0.1", "testserver"]
     )
     celery_broker_url: SecretStr = SecretStr("redis://localhost:6379/1")

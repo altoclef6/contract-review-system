@@ -20,6 +20,10 @@ os.environ["JWT_SECRET_KEY"] = "test-secret"
 os.environ["BOOTSTRAP_ADMIN_EMAIL"] = "admin@example.com"
 os.environ["BOOTSTRAP_ADMIN_PASSWORD"] = "Admin12345!"
 os.environ["MODEL_CREDENTIAL_ENCRYPTION_KEY"] = "test-secret"
+os.environ["ALLOWED_ORIGINS"] = "http://testserver"
+os.environ["TRUSTED_HOSTS"] = "testserver"
+os.environ["TRUST_PROXY_HEADERS"] = "false"
+os.environ["TRUSTED_PROXY_CIDRS"] = ""
 for _env_name, _directory in {
     "UPLOAD_DIR": "uploads",
     "REPORT_DIR": "reports",
@@ -53,6 +57,10 @@ def isolated_runtime(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setenv("BOOTSTRAP_ADMIN_EMAIL", "admin@example.com")
     monkeypatch.setenv("BOOTSTRAP_ADMIN_PASSWORD", "Admin12345!")
     monkeypatch.setenv("MODEL_CREDENTIAL_ENCRYPTION_KEY", "test-secret")
+    monkeypatch.setenv("ALLOWED_ORIGINS", "http://testserver")
+    monkeypatch.setenv("TRUSTED_HOSTS", "testserver")
+    monkeypatch.setenv("TRUST_PROXY_HEADERS", "false")
+    monkeypatch.setenv("TRUSTED_PROXY_CIDRS", "")
     for env_name, directory in {
         "UPLOAD_DIR": "uploads",
         "REPORT_DIR": "reports",

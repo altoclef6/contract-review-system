@@ -18,8 +18,8 @@
 
 ## 验证结果
 
-- 后端：`99 passed, 0 failed`；测试依赖改用 `httpx2` 后无弃用警告。
-- 覆盖率：整体 `83.79%`，由全新隔离环境中的 `pytest-cov` 真实测量，门槛为 80%。
+- 后端：`100 passed, 0 failed`；测试依赖改用 `httpx2` 后无弃用警告。
+- 覆盖率：整体 `83.81%`，由全新隔离环境中的 `pytest-cov` 真实测量，门槛为 80%。
 - Ruff 通过；Mypy 严格检查 124 个后端源文件通过；`pip check` 与 `pip-audit` 通过。
 - 前端：`vue-tsc -b` 和 `vite build` 通过，2408 个模块完成转换；`pnpm audit` 未发现已知漏洞。
 - 构建产物：Vue 核心 174.41 kB；主入口 232.87 kB；按需加载的图表 chunk 554.08 kB（gzip 189.47 kB）。Element Plus 已改为组件级自动导入。
