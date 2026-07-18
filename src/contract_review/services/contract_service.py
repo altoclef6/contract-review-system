@@ -29,6 +29,30 @@ class ContractServiceError(ValueError):
     pass
 
 
+def _count_reported_risks(counts: Any) -> int | None:
+    if not isinstance(counts, dict):
+        return None
+    reported_total = counts.get("风险数量")
+    if isinstance(reported_total, (int, float)) and not isinstance(reported_total, bool):
+        return int(reported_total)
+    severity_keys = (
+        "严重风险数量",
+        "高风险数量",
+        "中风险数量",
+        "低风险数量",
+        "严重",
+        "高",
+        "中",
+        "低",
+    )
+    values = [
+        counts[key]
+        for key in severity_keys
+        if isinstance(counts.get(key), (int, float)) and not isinstance(counts.get(key), bool)
+    ]
+    return sum(int(value) for value in values) if values else None
+
+
 class ContractService:
     _lock = threading.Lock()
 
@@ -408,7 +432,7 @@ class ContractService:
             enriched["latest_risk_level"] = latest.get("overall_risk_level")
             counts = latest.get("risk_counts")
             enriched["risk_count"] = (
-                sum(int(value) for value in counts.values()) if isinstance(counts, dict) else None
+                _count_reported_risks(counts)
             )
             review_id = latest.get("review_id")
             for version in versions:

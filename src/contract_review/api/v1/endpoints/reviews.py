@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# FastAPI dependency/form markers are intentionally declared as defaults.
+# ruff: noqa: B008
 import json
 from pathlib import Path
 from typing import Any
@@ -44,8 +46,8 @@ router = APIRouter()
 async def create_review(
     request: Request,
     合同类型: str = Form(
-        default="general",
-        description="合同类型：general/purchase/sales/employment/lease/nda/service/other",
+        default="auto",
+        description="默认 auto，由分类 Agent 根据合同原文自动判断；也可传入类型进行人工修正。",
     ),
     合同文件: UploadFile = File(
         ...,

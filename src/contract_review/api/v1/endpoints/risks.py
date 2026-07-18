@@ -17,6 +17,7 @@ from contract_review.schemas.risk import (
     RiskListResponse,
     RiskRecord,
     RiskRevisionRequest,
+    RiskStatistics,
     RiskStatus,
     RiskTransitionRequest,
 )
@@ -79,6 +80,18 @@ async def list_risks(
             review_id=review_id,
         )
     )
+
+
+@router.get(
+    "/statistics",
+    response_model=ApiResponse[RiskStatistics],
+    summary="风险台账统计",
+)
+async def get_risk_statistics(
+    user: UserPublic = Depends(get_current_user),
+    risks: RiskService = Depends(get_risk_service),
+) -> ApiResponse[RiskStatistics]:
+    return api_success(risks.statistics(actor_id=user.id, actor_role=user.role.value))
 
 
 @router.get("/{risk_id}", response_model=ApiResponse[RiskRecord], summary="风险详情")

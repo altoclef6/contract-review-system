@@ -25,11 +25,20 @@ class ContractClassification(BaseModel):
         "technical_service",
         "information_system",
         "software_outsourcing",
+        "procurement",
+        "sales",
+        "labor",
+        "lease",
+        "nda",
+        "service",
+        "other",
         "general",
     ]
     confidence: float = Field(ge=0, le=1)
     requires_human_selection: bool
     evidence: list[str] = Field(default_factory=list)
+    method: Literal["llm", "content_heuristic"] = "content_heuristic"
+    override_applied: bool = False
 
 
 class RuleCheckerOutput(BaseModel):

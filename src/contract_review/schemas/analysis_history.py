@@ -20,6 +20,7 @@ class AnalysisRecord(BaseModel):
     contract_id: str | None = None
     contract_version_id: str | None = None
     contract_text_path: str | None = None
+    classification: dict[str, Any] = Field(default_factory=dict)
     overall_risk_level: str | None = None
     risk_score: int | float | None = None
     safe_score: int | float | None = None

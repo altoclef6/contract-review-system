@@ -3,8 +3,16 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app/src
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    tesseract-ocr tesseract-ocr-chi-sim libreoffice-writer fonts-noto-cjk \
+RUN apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 update \
+    && for attempt in 1 2 3; do \
+        apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
+        install -y --no-install-recommends \
+        tesseract-ocr tesseract-ocr-chi-sim libreoffice-writer fonts-noto-cjk \
+        && break; \
+        if [ "$attempt" = 3 ]; then exit 1; fi; \
+        echo "APT install attempt $attempt failed; retrying"; \
+        sleep 5; \
+    done \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt pyproject.toml alembic.ini ./
@@ -17,6 +25,7 @@ RUN addgroup --system --gid 10001 contractreview \
     && adduser --system --uid 10001 --ingroup contractreview contractreview \
     && mkdir -p /app/data \
     && chown -R contractreview:contractreview /app \
+    && sed -i 's/\r$//' /usr/local/bin/backend-entrypoint \
     && chmod +x /usr/local/bin/backend-entrypoint
 
 EXPOSE 8000

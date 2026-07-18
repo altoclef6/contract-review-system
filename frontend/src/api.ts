@@ -3,6 +3,16 @@ import axios from 'axios'
 export const api = axios.create({ baseURL: '/api/v1', timeout: 120000 })
 let refreshInFlight: Promise<string> | null = null
 
+export function clearStoredSession(reason?: 'expired') {
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
+  localStorage.removeItem('user')
+  window.dispatchEvent(new CustomEvent('auth:cleared'))
+  if (reason === 'expired' && window.location.pathname !== '/login') {
+    window.location.assign('/login?reason=session-expired')
+  }
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
@@ -34,10 +44,10 @@ api.interceptors.response.use(
           original.headers.Authorization = `Bearer ${accessToken}`
           return api(original)
         } catch {
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          localStorage.removeItem('user')
+          clearStoredSession('expired')
         }
+      } else {
+        clearStoredSession('expired')
       }
     }
     return Promise.reject(error)

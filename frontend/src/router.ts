@@ -29,6 +29,20 @@ const router = createRouter({
     },
   ],
 })
+
+const chunkReloadKey = 'route-chunk-reload'
+
+router.onError((error) => {
+  const message = String(error?.message || error)
+  const isChunkLoadFailure = /dynamically imported module|module script|chunk/i.test(message)
+  if (isChunkLoadFailure && sessionStorage.getItem(chunkReloadKey) !== window.location.href) {
+    sessionStorage.setItem(chunkReloadKey, window.location.href)
+    window.location.reload()
+  }
+})
+
+router.afterEach(() => sessionStorage.removeItem(chunkReloadKey))
+
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.auth && !auth.loggedIn) return '/login'
