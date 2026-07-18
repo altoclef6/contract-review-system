@@ -3,10 +3,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from contract_review.api.dependencies.auth import get_audit_service, get_current_user
+from contract_review.api.v1.endpoints.contracts import get_contract_service
 from contract_review.schemas.api_response import ApiResponse, api_success
-from contract_review.schemas.auth import UserPublic
+from contract_review.schemas.auth import UserPublic, UserRole
 from contract_review.schemas.workflow import WorkflowActionRequest, WorkflowCreate, WorkflowPublic
 from contract_review.services.audit_service import AuditService
+from contract_review.services.contract_service import ContractService, ContractServiceError
+from contract_review.services.history_service import HistoryService
 from contract_review.services.notification_service import NotificationService
 from contract_review.services.workflow_service import WorkflowService, WorkflowServiceError
 
@@ -26,12 +29,27 @@ def get_workflow_service(request: Request) -> WorkflowService:
 )
 async def create_workflow(
     payload: WorkflowCreate,
+    request: Request,
     actor: UserPublic = Depends(get_current_user),
     service: WorkflowService = Depends(get_workflow_service),
+    contracts: ContractService = Depends(get_contract_service),
     audit: AuditService = Depends(get_audit_service),
 ) -> ApiResponse[WorkflowPublic]:
     try:
+        contracts.require_access(
+            payload.contract_id, actor_id=actor.id, actor_role=actor.role.value
+        )
+        if payload.review_id:
+            review = HistoryService(request.app.state.settings.report_dir.parent).get(
+                payload.review_id
+            )
+            if review is None or review.get("contract_id") != payload.contract_id:
+                raise HTTPException(status_code=404, detail="审查记录不存在或无权访问")
+            if actor.role != UserRole.admin and review.get("created_by") != actor.id:
+                raise HTTPException(status_code=404, detail="审查记录不存在或无权访问")
         workflow = service.create(payload.contract_id, payload.review_id, actor)
+    except ContractServiceError as exc:
+        raise HTTPException(status_code=404, detail="合同不存在或无权访问") from exc
     except WorkflowServiceError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     audit.log_operation(actor_id=actor.id, action="workflows.create", target=workflow.id)

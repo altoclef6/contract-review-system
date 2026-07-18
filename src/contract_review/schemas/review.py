@@ -58,6 +58,21 @@ class ReviewResponse(BaseModel):
 
     review_id: str = Field(title="审查任务编号", description="系统生成的唯一审查任务编号。")
     file_name: str = Field(title="合同文件名", description="用户上传的原始合同文件名。")
+    contract_type: str = Field(
+        default="other", title="合同类型", description="自动分类或人工修正后的合同类型。"
+    )
+    classification: dict[str, Any] = Field(
+        default_factory=dict, title="分类详情", description="自动分类置信度、依据与分类方式。"
+    )
+    contract_id: str | None = Field(
+        default=None, title="合同档案编号", description="自动关联或创建的合同中心档案编号。"
+    )
+    contract_version_id: str | None = Field(
+        default=None, title="合同版本编号", description="与本次审查关联的合同版本编号。"
+    )
+    contract_center_saved: bool = Field(
+        default=False, title="合同中心保存状态", description="本次审查是否已关联到合同中心。"
+    )
     contract_text: str = Field(
         default="",
         title="合同全文",

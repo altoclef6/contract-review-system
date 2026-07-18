@@ -147,6 +147,8 @@ class RuleCenterService:
             override = overrides.get(base["rule_id"], {})
             severity = override.get("severity", base["severity"])
             feedback = feedback_by_rule.get(base["rule_id"], {})
+            confirmed = feedback.get("confirmed")
+            rejected = feedback.get("rejected")
             records.append(
                 RuleRecord(
                     rule_id=base["rule_id"],
@@ -163,8 +165,8 @@ class RuleCenterService:
                     recommendation=override.get("recommendation", base["recommendation"]),
                     test_samples=[base["title"]],
                     hit_count=None,
-                    confirmed_count=feedback.get("confirmed"),
-                    rejected_count=feedback.get("rejected"),
+                    confirmed_count=confirmed if isinstance(confirmed, int) else None,
+                    rejected_count=rejected if isinstance(rejected, int) else None,
                     confirmation_rate=feedback.get("confirmation_rate"),
                     updated_at=datetime.fromisoformat(override["updated_at"])
                     if override.get("updated_at")

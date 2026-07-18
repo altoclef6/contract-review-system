@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import os
 from functools import lru_cache
+from ipaddress import ip_network
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=None if os.environ.get("ENVIRONMENT", "").casefold() == "test" else ".env",
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -20,7 +22,7 @@ class Settings(BaseSettings):
     environment: Literal["local", "dev", "test", "prod"] = "local"
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
-    allowed_origins: list[str] = Field(
+    allowed_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"]
     )
     log_level: str = "INFO"
@@ -40,6 +42,9 @@ class Settings(BaseSettings):
     knowledge_center_data_dir: Path = Path("data/knowledge-center")
     risk_feedback_data_dir: Path = Path("data/risk-feedback")
     max_upload_size_mb: int = 50
+    max_pdf_pages: int = 500
+    max_image_pixels: int = 80_000_000
+    ocr_timeout_seconds: int = 120
 
     jwt_secret_key: SecretStr
     jwt_access_token_minutes: int = 30
@@ -68,7 +73,11 @@ class Settings(BaseSettings):
     redis_enabled: bool = False
     cache_ttl_seconds: int = 300
     rate_limit_per_minute: int = 120
-    trusted_hosts: list[str] = Field(
+    login_max_attempts: int = 5
+    login_window_seconds: int = 300
+    trust_proxy_headers: bool = False
+    trusted_proxy_cidrs: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    trusted_hosts: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["localhost", "127.0.0.1", "testserver"]
     )
     celery_broker_url: SecretStr = SecretStr("redis://localhost:6379/1")
@@ -115,9 +124,28 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL uses a forbidden production password")
         if self.debug:
             raise ValueError("DEBUG must be disabled in production")
+        if not self.database_enabled:
+            raise ValueError("DATABASE_ENABLED must be true in production")
+        if not self.redis_enabled:
+            raise ValueError("REDIS_ENABLED must be true in production")
+        if self.review_tasks_sync_fallback:
+            raise ValueError("REVIEW_TASKS_SYNC_FALLBACK must be false in production")
+        if not self.allowed_origins or any(
+            origin == "*" or not origin.startswith("https://") for origin in self.allowed_origins
+        ):
+            raise ValueError("ALLOWED_ORIGINS must contain explicit HTTPS origins in production")
+        if not self.trusted_hosts or "*" in self.trusted_hosts:
+            raise ValueError("TRUSTED_HOSTS must contain explicit hosts in production")
+        if self.trust_proxy_headers and not self.trusted_proxy_cidrs:
+            raise ValueError("TRUSTED_PROXY_CIDRS is required when proxy headers are trusted")
+        try:
+            for cidr in self.trusted_proxy_cidrs:
+                ip_network(cidr, strict=False)
+        except ValueError as exc:
+            raise ValueError("TRUSTED_PROXY_CIDRS contains an invalid network") from exc
         return self
 
-    @field_validator("allowed_origins", "trusted_hosts", mode="before")
+    @field_validator("allowed_origins", "trusted_hosts", "trusted_proxy_cidrs", mode="before")
     @classmethod
     def parse_allowed_origins(cls, value: str | list[str]) -> list[str]:
         if isinstance(value, str):

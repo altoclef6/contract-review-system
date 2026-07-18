@@ -54,10 +54,15 @@ def test_contract_approval_workflow_and_notifications(tmp_path: Path, monkeypatc
             "Authorization": f"Bearer {_login(client, 'legal@example.com', 'Legal12345!')}"
         }
 
+        contract_id = client.post(
+            "/api/v1/contracts",
+            headers=employee_headers,
+            json={"title": "审批合同", "category": "other"},
+        ).json()["data"]["id"]
         created = client.post(
             "/api/v1/workflows",
             headers=employee_headers,
-            json={"contract_id": "contract_demo", "review_id": "review_demo"},
+            json={"contract_id": contract_id},
         )
         assert created.status_code == 201
         workflow_id = created.json()["data"]["id"]
@@ -102,8 +107,13 @@ def test_employee_cannot_access_another_workflow(tmp_path: Path, monkeypatch) ->
                 json={"email": email, "password": "Employee12345!", "full_name": email},
             )
             headers.append({"Authorization": f"Bearer {_login(client, email, 'Employee12345!')}"})
+        contract_id = client.post(
+            "/api/v1/contracts",
+            headers=headers[0],
+            json={"title": "私有合同", "category": "other"},
+        ).json()["data"]["id"]
         created = client.post(
-            "/api/v1/workflows", headers=headers[0], json={"contract_id": "contract_private"}
+            "/api/v1/workflows", headers=headers[0], json={"contract_id": contract_id}
         )
         workflow_id = created.json()["data"]["id"]
         assert client.get(f"/api/v1/workflows/{workflow_id}", headers=headers[1]).status_code == 404

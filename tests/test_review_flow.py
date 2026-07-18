@@ -47,6 +47,7 @@ def test_review_docx_flow(tmp_path: Path, monkeypatch) -> None:
                 },
                 headers=headers,
             )
+        contracts_response = client.get("/api/v1/contracts", headers=headers)
 
     payload = response.json()
     assert response.status_code == 201
@@ -62,6 +63,48 @@ def test_review_docx_flow(tmp_path: Path, monkeypatch) -> None:
     assert payload["export_paths"]["docx"]
     assert payload["export_paths"]["pdf"]
     assert all("原文定位" in finding for finding in payload["risk_findings"])
+    assert payload["contract_type"] == "procurement"
+    assert payload["classification"]["method"] == "content_heuristic"
+    assert "采购合同" in payload["classification"]["evidence"]
+    assert payload["contract_center_saved"] is True
+    assert payload["contract_id"]
+    assert payload["contract_version_id"]
+    assert contracts_response.status_code == 200
+    contracts = contracts_response.json()["data"]["items"]
+    archived = next(item for item in contracts if item["id"] == payload["contract_id"])
+    assert archived["category"] == "procurement"
+    assert archived["title"] == "采购合同"
+    assert archived["versions"][0]["review_id"] == payload["review_id"]
+    assert archived["versions"][0]["parse_status"] == "ready"
+
+
+def test_review_manual_type_override_is_recorded(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("ENABLE_LLM", "false")
+    get_settings.cache_clear()
+    contract_path = tmp_path / "采购合同.docx"
+    _make_contract(contract_path)
+
+    with TestClient(create_app()) as client:
+        headers = _auth_headers(client)
+        with contract_path.open("rb") as file_obj:
+            response = client.post(
+                "/api/v1/reviews",
+                files={
+                    "合同文件": (
+                        contract_path.name,
+                        file_obj,
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    )
+                },
+                data={"合同类型": "technical_service"},
+                headers=headers,
+            )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["contract_type"] == "technical_service"
+    assert payload["classification"]["contract_type"] == "procurement"
+    assert payload["classification"]["override_applied"] is True
 
 
 def test_review_history_and_download(tmp_path: Path, monkeypatch) -> None:

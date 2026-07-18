@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +19,7 @@ from contract_review.core.logging import configure_logging
 from contract_review.core.middleware import (
     MetricsMiddleware,
     RateLimitMiddleware,
+    RequestIdMiddleware,
     SecurityHeadersMiddleware,
 )
 from contract_review.graph.graph_builder import build_contract_review_graph
@@ -80,13 +82,14 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
-    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware, production=settings.environment == "prod")
+    app.add_middleware(RequestIdMiddleware)
     app.add_middleware(MetricsMiddleware)
     app.add_middleware(RateLimitMiddleware, limit_per_minute=settings.rate_limit_per_minute)
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
-    def custom_openapi() -> dict:
+    def custom_openapi() -> dict[str, Any]:
         if app.openapi_schema:
             return app.openapi_schema
         schema = get_openapi(
@@ -104,7 +107,7 @@ def create_app() -> FastAPI:
         app.openapi_schema = schema
         return app.openapi_schema
 
-    app.openapi = custom_openapi
+    object.__setattr__(app, "openapi", custom_openapi)
     return app
 
 

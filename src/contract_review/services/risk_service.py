@@ -18,6 +18,7 @@ from contract_review.schemas.risk import (
     RiskRecord,
     RiskSource,
     RiskStateEvent,
+    RiskStatistics,
     RiskStatus,
 )
 from contract_review.services.contract_service import ContractService, ContractServiceError
@@ -94,9 +95,13 @@ class RiskService:
             return records
         with self._lock:
             current = self._load_local()
-            existing = {(item.review_id, item.source_risk_id) for item in current}
+            existing_keys: set[tuple[str, str | None]] = {
+                (item.review_id, item.source_risk_id) for item in current
+            }
             additions = [
-                item for item in records if (item.review_id, item.source_risk_id) not in existing
+                item
+                for item in records
+                if (item.review_id, item.source_risk_id) not in existing_keys
             ]
             if additions:
                 self._save_local(current + additions)
@@ -157,6 +162,43 @@ class RiskService:
         start = (page - 1) * page_size
         return RiskListResponse(
             items=records[start : start + page_size], total=total, page=page, page_size=page_size
+        )
+
+    def statistics(self, *, actor_id: str, actor_role: str) -> RiskStatistics:
+        records = self._load_all()
+        if actor_role != "admin":
+            records = [
+                item
+                for item in records
+                if item.created_by == actor_id or item.assignee_id == actor_id
+            ]
+        enriched = [self._enrich(item) for item in records]
+
+        def count_by(values: list[str], fallback: str = "未知") -> dict[str, int]:
+            result: dict[str, int] = {}
+            for value in values:
+                key = value or fallback
+                result[key] = result.get(key, 0) + 1
+            return result
+
+        scores = [item.risk_score for item in enriched]
+        return RiskStatistics(
+            total=len(enriched),
+            pending_review_count=sum(
+                item.status == RiskStatus.pending_review for item in enriched
+            ),
+            active_remediation_count=sum(
+                item.status == RiskStatus.remediating for item in enriched
+            ),
+            resolved_count=sum(
+                item.status in {RiskStatus.remediated, RiskStatus.closed} for item in enriched
+            ),
+            ai_involved_count=sum(item.ai_involved for item in enriched),
+            average_risk_score=round(sum(scores) / len(scores), 2) if scores else 0,
+            severities=count_by([item.severity for item in enriched]),
+            statuses=count_by([item.status.value for item in enriched]),
+            categories=count_by([item.category for item in enriched]),
+            contract_types=count_by([item.contract_type or "未关联合同" for item in enriched]),
         )
 
     def get(self, risk_id: str, *, actor_id: str, actor_role: str) -> RiskRecord:
@@ -355,7 +397,9 @@ class RiskService:
         created_by: str | None,
         now: datetime,
     ) -> RiskRecord:
-        raw_location = item.get("原文定位") if isinstance(item.get("原文定位"), dict) else {}
+        raw_location: dict[str, Any] = (
+            item["原文定位"] if isinstance(item.get("原文定位"), dict) else {}
+        )
         source_value = str(item.get("来源") or item.get("source") or "deterministic_rule")
         ai_involved = "AI" in source_value or source_value == "llm_analysis"
         source = RiskSource.llm_analysis if ai_involved else RiskSource.deterministic_rule

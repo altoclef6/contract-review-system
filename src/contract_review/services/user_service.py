@@ -136,6 +136,17 @@ class UserService:
                 return
         raise UserServiceError("用户不存在")
 
+    def revoke_sessions(self, user_id: str) -> UserPublic:
+        with self._lock:
+            users = self._load()
+            for record in users:
+                if record["id"] == user_id:
+                    record["token_version"] = int(record.get("token_version", 0)) + 1
+                    record["updated_at"] = datetime.now(timezone.utc).isoformat()
+                    self._save(users)
+                    return self._to_public(record)
+        raise UserServiceError("用户不存在")
+
     def _ensure_bootstrap_admin(self) -> None:
         with self._lock:
             users = self._load()

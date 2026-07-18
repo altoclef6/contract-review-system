@@ -103,6 +103,7 @@ def build_history_item(
     contract_id: str | None = None,
     contract_version_id: str | None = None,
     contract_text_path: str | None = None,
+    classification: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     final_report = final_report or {}
     risk_score = final_report.get("风险评分", {})
@@ -139,6 +140,7 @@ def build_history_item(
         "contract_id": contract_id,
         "contract_version_id": contract_version_id,
         "contract_text_path": contract_text_path,
+        "classification": classification or {},
         "overall_risk_level": final_report.get("总体风险等级"),
         "risk_score": risk_score.get("风险分"),
         "safe_score": risk_score.get("安全分"),

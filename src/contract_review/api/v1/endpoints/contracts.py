@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Literal
 
 from fastapi import (
     APIRouter,
@@ -48,7 +50,11 @@ from contract_review.services.contract_service import ContractService, ContractS
 from contract_review.services.history_service import HistoryService
 from contract_review.services.review_task_service import ReviewTaskService
 from contract_review.services.user_service import UserService
-from contract_review.utils.file_utils import sanitize_filename, save_upload_file
+from contract_review.utils.file_utils import (
+    normalize_original_filename,
+    sanitize_filename,
+    save_upload_file,
+)
 
 router = APIRouter()
 
@@ -292,12 +298,17 @@ async def get_contract_overview(
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="合同不可访问") from exc
 
-    def review_summary(item: dict) -> ContractReviewSummary:
+    def review_summary(item: dict[str, Any]) -> ContractReviewSummary:
         counts = item.get("risk_counts")
         count = sum(int(value) for value in counts.values()) if isinstance(counts, dict) else None
+        created_at = item.get("created_at")
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        if not isinstance(created_at, datetime):
+            raise HTTPException(status_code=422, detail="审查记录缺少有效创建时间")
         return ContractReviewSummary(
             review_id=str(item.get("review_id")),
-            created_at=item.get("created_at"),
+            created_at=created_at,
             status="completed",
             risk_level=item.get("overall_risk_level"),
             risk_count=count,
@@ -328,7 +339,9 @@ async def upload_contract_version(
     request: Request,
     contract_file: UploadFile = File(...),
     change_note: str | None = Form(default=None, max_length=1000),
-    version_type: str = Form(default="modified", pattern="^(original|modified|re_review|final)$"),
+    version_type: Literal["original", "modified", "re_review", "final"] = Form(
+        default="modified"
+    ),
     user: UserPublic = Depends(require_permission(Permission.contracts_write)),
     contracts: ContractService = Depends(get_contract_service),
     audit: AuditService = Depends(get_audit_service),
@@ -337,13 +350,15 @@ async def upload_contract_version(
         contracts.require_access(contract_id, actor_id=user.id, actor_role=user.role.value)
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="合同不可访问") from exc
-    original_name = contract_file.filename or "contract"
+    original_name = normalize_original_filename(contract_file.filename or "contract")
     settings = request.app.state.settings
     contract_upload_dir = settings.upload_dir / "contracts" / contract_id
     saved_path = await save_upload_file(
         file=contract_file,
         upload_dir=contract_upload_dir,
         max_size_mb=settings.max_upload_size_mb,
+        max_pdf_pages=settings.max_pdf_pages,
+        max_image_pixels=settings.max_image_pixels,
     )
     try:
         digest = hashlib.sha256(saved_path.read_bytes()).hexdigest()

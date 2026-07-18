@@ -144,7 +144,7 @@ def _merge_extraction(
     return merged
 
 
-async def extractor_node(state: ContractReviewState) -> dict:
+async def extractor_node(state: ContractReviewState) -> dict[str, Any]:
     emit_stage(state, "EXTRACTING")
     text = state.get("raw_text", "")
     llm_config = state.get("llm_config")

@@ -27,3 +27,7 @@ select = ["E", "F", "I", "B", "UP"]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "contract_review.tasks.jobs"
+disallow_untyped_decorators = false

@@ -8,6 +8,7 @@ from contract_review.api.dependencies.auth import get_current_user
 from contract_review.api.v1.endpoints.contracts import get_contract_service
 from contract_review.schemas.api_response import ApiResponse, api_success
 from contract_review.schemas.auth import UserPublic, UserRole
+from contract_review.schemas.contract_management import ContractRecord
 from contract_review.schemas.version_comparison import (
     VersionCompareRequest,
     VersionComparisonResult,
@@ -21,7 +22,9 @@ from contract_review.services.version_comparison_service import (
 router = APIRouter()
 
 
-def _require_contract_access(contract_id: str, user: UserPublic, service: ContractService):
+def _require_contract_access(
+    contract_id: str, user: UserPublic, service: ContractService
+) -> ContractRecord:
     try:
         contract = service.get_contract(contract_id)
     except ContractServiceError as exc:
