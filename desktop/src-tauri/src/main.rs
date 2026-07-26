@@ -40,7 +40,11 @@ fn reserve_loopback_port() -> Result<u16, String> {
 fn backend_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path()
         .resource_dir()
-        .map(|path| path.join("backend").join("contract-review-backend.exe"))
+        .map(|path| {
+            path.join("resources")
+                .join("backend")
+                .join("contract-review-backend.exe")
+        })
         .map_err(|error| error.to_string())
 }
 

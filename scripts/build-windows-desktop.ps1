@@ -74,7 +74,9 @@ try {
     if (Test-Path (Join-Path $releaseDir "WebView2Loader.dll")) {
         Copy-Item (Join-Path $releaseDir "WebView2Loader.dll") $portableDir -Force
     }
-    Copy-Item (Join-Path $releaseDir "backend") $portableDir -Recurse -Force
+    $portableResources = Join-Path $portableDir "resources"
+    New-Item -ItemType Directory -Force -Path $portableResources | Out-Null
+    Copy-Item (Join-Path $releaseDir "resources\backend") $portableResources -Recurse -Force
     $portableZip = Join-Path $OutputDir "ContractReviewPortable-x64.zip"
     Compress-Archive -Path (Join-Path $portableDir "*") -DestinationPath $portableZip -Force
 
