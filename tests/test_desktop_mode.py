@@ -34,13 +34,25 @@ def test_desktop_startup_token_protects_api(
     tmp_path: Path,
 ) -> None:
     token = "desktop-test-startup-token-0123456789"
+    desktop_origin = "http://tauri.localhost"
     monkeypatch.setenv("APP_MODE", "desktop")
     monkeypatch.setenv("DESKTOP_STARTUP_TOKEN", token)
     monkeypatch.setenv("DESKTOP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("ALLOWED_ORIGINS", desktop_origin)
     get_settings.cache_clear()
 
     with TestClient(create_app()) as client:
         public = client.get("/api/v1/health/live")
+        preflight = client.options(
+            "/api/v1/auth/login",
+            headers={
+                "Origin": desktop_origin,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": (
+                    "content-type,x-desktop-startup-token"
+                ),
+            },
+        )
         missing = client.get("/api/v1/health")
         invalid = client.get(
             "/api/v1/health",
@@ -52,6 +64,8 @@ def test_desktop_startup_token_protects_api(
         )
 
     assert public.status_code == 200
+    assert preflight.status_code == 200
+    assert preflight.headers["access-control-allow-origin"] == desktop_origin
     assert missing.status_code == 401
     assert invalid.status_code == 401
     assert accepted.status_code == 200

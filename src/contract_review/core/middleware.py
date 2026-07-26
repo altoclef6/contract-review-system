@@ -24,6 +24,12 @@ class DesktopStartupTokenMiddleware(BaseHTTPMiddleware):
         self.startup_token = startup_token
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        if (
+            request.method == "OPTIONS"
+            and request.headers.get("origin")
+            and request.headers.get("access-control-request-method")
+        ):
+            return await call_next(request)
         if request.url.path in self._public_paths:
             return await call_next(request)
         supplied = request.headers.get("x-desktop-startup-token", "")
