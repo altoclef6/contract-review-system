@@ -12,6 +12,12 @@ const loading = ref(false)
 const forgotDialog = ref(false)
 const forgotEmail = ref('')
 const forgotLoading = ref(false)
+const registerDialog = ref(false)
+const registerName = ref('')
+const registerEmail = ref('')
+const registerPassword = ref('')
+const registerPasswordConfirm = ref('')
+const registerLoading = ref(false)
 const auth = useAuthStore()
 const router = useRouter()
 
@@ -36,6 +42,46 @@ async function submit() {
 function openForgotPassword() {
   forgotEmail.value = email.value
   forgotDialog.value = true
+}
+
+function openRegister() {
+  registerEmail.value = email.value
+  registerDialog.value = true
+}
+
+async function submitRegister() {
+  if (!registerName.value.trim() || !registerEmail.value.trim() || !registerPassword.value) {
+    ElMessage.warning('请填写姓名、邮箱和密码')
+    return
+  }
+  if (registerPassword.value.length < 8) {
+    ElMessage.warning('密码至少需要 8 个字符')
+    return
+  }
+  if (registerPassword.value !== registerPasswordConfirm.value) {
+    ElMessage.warning('两次输入的密码不一致')
+    return
+  }
+  registerLoading.value = true
+  try {
+    await api.post('/auth/register', {
+      full_name: registerName.value.trim(),
+      email: registerEmail.value.trim(),
+      password: registerPassword.value,
+    })
+    await auth.login(registerEmail.value.trim(), registerPassword.value)
+    registerPassword.value = ''
+    registerPasswordConfirm.value = ''
+    registerDialog.value = false
+    ElMessage.success('账号创建成功')
+    await router.push('/dashboard')
+  } catch (error: any) {
+    if (!error.response) ElMessage.error('无法连接服务器，请确认后端服务正在运行')
+    else if (error.response.status === 409) ElMessage.error('该邮箱已注册，请直接登录')
+    else ElMessage.error(error.response?.data?.message || '注册失败，请稍后重试')
+  } finally {
+    registerLoading.value = false
+  }
 }
 
 async function submitForgotPassword() {
@@ -79,13 +125,38 @@ async function submitForgotPassword() {
           <el-form-item label="登录密码">
             <el-input v-model="password" type="password" show-password size="large" autocomplete="current-password" placeholder="请输入登录密码" :prefix-icon="Lock" @keyup.enter="submit" />
           </el-form-item>
-          <div class="login-form-actions"><button type="button" @click="openForgotPassword">忘记密码？</button></div>
+          <div class="login-form-actions">
+            <button type="button" @click="openRegister">创建本地账号</button>
+            <button type="button" @click="openForgotPassword">忘记密码？</button>
+          </div>
           <el-button type="primary" size="large" :loading="loading" class="login-submit" @click="submit">登录工作台</el-button>
         </el-form>
         <footer><i></i><span>登录即表示您同意遵守企业数据与合同保密制度</span></footer>
       </div>
     </section>
   </main>
+
+  <el-dialog v-model="registerDialog" title="创建本地账号" width="440px" append-to-body>
+    <p class="dialog-description">账号和合同数据仅保存在当前电脑。新账号默认为普通用户权限。</p>
+    <el-form label-position="top" @submit.prevent="submitRegister">
+      <el-form-item label="姓名">
+        <el-input v-model="registerName" maxlength="80" autocomplete="name" placeholder="请输入姓名" />
+      </el-form-item>
+      <el-form-item label="邮箱">
+        <el-input v-model="registerEmail" autocomplete="email" placeholder="name@example.com" />
+      </el-form-item>
+      <el-form-item label="密码">
+        <el-input v-model="registerPassword" type="password" show-password maxlength="128" autocomplete="new-password" placeholder="至少 8 个字符" />
+      </el-form-item>
+      <el-form-item label="确认密码">
+        <el-input v-model="registerPasswordConfirm" type="password" show-password maxlength="128" autocomplete="new-password" placeholder="请再次输入密码" @keyup.enter="submitRegister" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="registerDialog = false">取消</el-button>
+      <el-button type="primary" :loading="registerLoading" @click="submitRegister">创建并登录</el-button>
+    </template>
+  </el-dialog>
 
   <el-dialog v-model="forgotDialog" title="找回密码" width="420px" append-to-body>
     <p class="dialog-description">提交注册邮箱后，系统会返回统一安全提示，不会披露账号是否存在。</p>

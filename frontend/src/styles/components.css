@@ -173,7 +173,7 @@
 .login-form-card header > span { color: var(--primary); font-size: 12px; font-weight: 800; }
 .login-form-card h2 { margin: 7px 0 4px; font-size: 26px; }
 .login-form-card header p { margin: 0; color: var(--text-secondary); }
-.login-form-actions { display: flex; justify-content: flex-end; margin: -4px 0 16px; }
+.login-form-actions { display: flex; justify-content: space-between; gap: 16px; margin: -4px 0 16px; }
 .login-form-actions button { padding: 0; border: 0; color: var(--primary); background: transparent; font-size: 12px; cursor: pointer; }
 .login-submit { width: 100%; height: 46px; }
 .login-form-card footer { display: flex; align-items: center; gap: 8px; margin-top: 22px; color: var(--text-muted); font-size: 10px; line-height: 16px; }
