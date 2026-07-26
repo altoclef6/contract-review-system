@@ -17,13 +17,23 @@ interface TextLocation {
 
 const file = ref<File>()
 const uploadRef = ref<any>()
-const type = ref('general')
+const type = ref('auto')
+const manualOverride = ref(false)
 const loading = ref(false)
 const result = ref<any>()
 const activeRisk = ref<any>()
 const highlightedClause = ref<HTMLElement>()
 const elapsedSeconds = ref(0)
 let elapsedTimer: number | undefined
+
+const maxFileSize = 50 * 1024 * 1024
+const allowedExtensions = new Set(['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'bmp'])
+const contractTypeNames: Record<string, string> = {
+  software_development: '软件开发合同', technical_service: '技术服务合同',
+  information_system: '信息系统建设合同', software_outsourcing: '软件外包合同',
+  procurement: '采购合同', sales: '销售合同', labor: '劳动合同', lease: '租赁合同',
+  nda: '保密协议', service: '服务合同', other: '其他合同', general: '通用合同',
+}
 
 const formattedFileSize = computed(() => {
   if (!file.value) return ''
@@ -38,6 +48,15 @@ const overallRiskClass = computed(() => {
   if (level === '高' || level === '严重') return 'is-high'
   if (level === '中') return 'is-medium'
   return 'is-low'
+})
+const detectedTypeLabel = computed(() => contractTypeNames[result.value?.contract_type] || result.value?.contract_type || '待识别')
+const classificationConfidence = computed(() => {
+  const confidence = result.value?.classification?.confidence
+  return typeof confidence === 'number' ? `${Math.round(confidence * 100)}%` : '暂无'
+})
+const overallRiskLabel = computed(() => {
+  const level = String(result.value?.final_report?.总体风险等级 || '暂无')
+  return level.endsWith('风险') ? level : `${level}风险`
 })
 
 const activeLocation = computed<TextLocation | undefined>(() => activeRisk.value?.原文定位)
@@ -67,13 +86,13 @@ async function run() {
   }, 1000)
   const form = new FormData()
   form.append('合同文件', file.value)
-  form.append('合同类型', type.value)
+  form.append('合同类型', manualOverride.value ? type.value : 'auto')
   try {
     result.value = (await api.post('/reviews', form, { timeout: 300000 })).data
     activeRisk.value = result.value.risk_findings.find(
       (risk: any) => risk.原文定位?.字符起点 !== null,
     ) || result.value.risk_findings[0]
-    ElMessage.success('审查完成')
+    ElMessage.success(result.value.contract_center_saved ? '审查完成，合同已自动加入合同中心' : '审查完成')
     await focusRisk(activeRisk.value)
     await new Promise((resolve) => window.setTimeout(resolve, 420))
   } catch (error: any) {
@@ -96,7 +115,29 @@ async function focusRisk(risk: any) {
   highlightedClause.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
-const onChange = (upload: any) => { file.value = upload.raw }
+const onChange = (upload: any) => {
+  const selected = upload.raw as File | undefined
+  if (!selected) return
+  const extension = selected.name.split('.').pop()?.toLowerCase() || ''
+  if (!allowedExtensions.has(extension)) {
+    ElMessage.error('不支持该文件类型，请上传 PDF、Word 或常见扫描图片')
+    removeFile()
+    return
+  }
+  if (selected.size <= 0) {
+    ElMessage.error('文件内容为空，请重新选择')
+    removeFile()
+    return
+  }
+  if (selected.size > maxFileSize) {
+    ElMessage.error('文件超过 50 MB，请压缩或拆分后再上传')
+    removeFile()
+    return
+  }
+  file.value = selected
+  result.value = undefined
+  activeRisk.value = undefined
+}
 
 function triggerUpload() {
   uploadRef.value?.clearFiles()
@@ -148,25 +189,44 @@ function removeFile() {
         </div>
 
         <div class="setup-card review-options">
-          <div class="module-heading"><div><h2>审查配置</h2><p>选择合同类型与审查能力</p></div></div>
-          <label for="contract-type">合同类型</label>
-          <el-select id="contract-type" v-model="type">
-            <el-option label="通用合同" value="general" /><el-option label="采购合同" value="purchase" />
-            <el-option label="销售合同" value="sales" /><el-option label="劳动合同" value="employment" />
-            <el-option label="租赁合同" value="lease" /><el-option label="保密协议" value="nda" />
-            <el-option label="服务合同" value="service" />
-          </el-select>
+          <div class="module-heading"><div><h2>智能分类与归档</h2><p>默认读取合同正文自动识别，无需手动选择</p></div></div>
+          <div class="auto-classification">
+            <strong>自动识别合同类型</strong>
+            <span>分类 Agent 将给出类型、置信度和识别依据；低置信度结果可在合同中心修正。</span>
+          </div>
+          <div class="override-row"><span>需要人工指定类型</span><el-switch v-model="manualOverride" /></div>
+          <template v-if="manualOverride">
+            <label for="contract-type">人工指定类型</label>
+            <el-select id="contract-type" v-model="type">
+              <el-option v-for="(label, value) in contractTypeNames" :key="value" :label="label" :value="value" />
+            </el-select>
+          </template>
           <div class="capability-tags" aria-label="审查能力">
-            <span>要素提取</span><span>合规校验</span><span>风险评分</span><span>条款优化</span>
+            <span>自动分类</span><span>要素提取</span><span>合规校验</span><span>风险评分</span><span>自动归档</span>
           </div>
           <el-button class="start-review" type="primary" :loading="loading" :disabled="loading" @click="run">开始审查</el-button>
-          <p class="duration-hint">预计耗时 20～40 秒</p>
+          <p class="duration-hint">审查成功后自动加入合同中心并生成报告、风险台账</p>
         </div>
       </section>
 
       <section class="result-area" aria-label="审查结果">
+        <el-alert
+          v-if="result?.errors?.length"
+          type="warning"
+          show-icon
+          :closable="false"
+          :title="result.errors.join('；')"
+          class="result-warning"
+        />
+        <div v-if="result" class="classification-summary">
+          <div><span>识别类型</span><strong>{{ detectedTypeLabel }}</strong></div>
+          <div><span>分类置信度</span><strong>{{ classificationConfidence }}</strong></div>
+          <div><span>分类方式</span><strong>{{ result.classification?.method === 'llm' ? 'AI 模型' : '内容规则' }}</strong></div>
+          <div><span>合同中心</span><router-link v-if="result.contract_id" :to="`/contracts/${result.contract_id}`">查看已归档合同</router-link><strong v-else>未关联</strong></div>
+          <p v-if="result.classification?.evidence?.length">识别依据：{{ result.classification.evidence.join('、') }}</p>
+        </div>
         <div v-if="result" class="result-summary">
-          <MetricCard label="综合风险" :value="`${result.final_report?.总体风险等级}风险`" :tone="overallRiskClass === 'is-high' ? 'high' : overallRiskClass === 'is-medium' ? 'medium' : 'low'" />
+          <MetricCard label="综合风险" :value="overallRiskLabel" :tone="overallRiskClass === 'is-high' ? 'high' : overallRiskClass === 'is-medium' ? 'medium' : 'low'" />
           <MetricCard label="风险评分" :value="result.final_report?.风险评分?.风险分" unit="/ 100" tone="medium" />
           <MetricCard label="风险点" :value="result.risk_findings.length" unit="项" />
           <MetricCard label="严重风险" :value="severeRiskCount" unit="项" tone="high" />
@@ -342,6 +402,10 @@ function removeFile() {
 .review-options :deep(.el-select) { width: 100%; }
 .review-options :deep(.el-select__wrapper) { min-height: 44px; border-radius: 8px; box-shadow: 0 0 0 1px var(--review-border) inset; }
 .review-options :deep(.el-select__wrapper.is-focused) { box-shadow: 0 0 0 1px var(--review-primary) inset; }
+.auto-classification { display: grid; gap: 5px; padding: 13px 14px; border: 1px solid #bfdbfe; border-radius: 9px; background: #eff6ff; }
+.auto-classification strong { color: #1e40af; font-size: 13px; }
+.auto-classification span { color: #475569; font-size: 12px; line-height: 18px; }
+.override-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 10px; color: var(--review-muted); font-size: 12px; }
 .capability-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 20px; }
 .capability-tags span { padding: 5px 9px; border: 1px solid #dbeafe; border-radius: 6px; color: #1e40af; background: #eff6ff; font-size: 12px; line-height: 18px; }
 .start-review { width: 100%; height: 46px; margin-top: auto; border: 0; border-radius: 8px; background: var(--review-primary); font-size: 14px; font-weight: 600; box-shadow: none; }
@@ -352,6 +416,13 @@ function removeFile() {
 .duration-hint { margin: 8px 0 0; color: var(--review-muted); font-size: 12px; line-height: 18px; text-align: center; }
 
 .result-area { margin-top: 24px; }
+.result-warning { margin-bottom: 16px; }
+.classification-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; padding: 16px 18px; border: 1px solid #dbeafe; border-radius: var(--review-radius); background: #f8fbff; }
+.classification-summary > div { display: grid; gap: 4px; }
+.classification-summary span { color: var(--review-muted); font-size: 12px; }
+.classification-summary strong,.classification-summary a { color: var(--review-text); font-size: 14px; font-weight: 600; }
+.classification-summary a { color: var(--review-primary); }
+.classification-summary p { grid-column: 1 / -1; margin: 2px 0 0; color: var(--review-muted); font-size: 12px; }
 .result-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding: 16px; }
 .metric-card { position: relative; min-width: 0; padding: 18px 20px; overflow: hidden; border: 1px solid var(--review-border); border-radius: 10px; background: #fafcff; }
 .metric-card::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--review-primary); }
@@ -470,6 +541,7 @@ function removeFile() {
 @media (max-width: 1024px) {
   .review-setup { grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; }
   .result-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .classification-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .review-result-workbench { grid-template-columns: minmax(280px, 42%) minmax(0, 1fr); }
 }
 
@@ -495,6 +567,7 @@ function removeFile() {
   .upload-success { margin-left: 62px; }
   .file-actions { margin-left: auto; }
   .result-summary { grid-template-columns: 1fr; }
+  .classification-summary { grid-template-columns: 1fr; }
   .result-toolbar { align-items: flex-start; padding: 16px; }
   .contract-document { padding: 12px; }
   .contract-document pre { padding: 20px; }

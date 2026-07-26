@@ -90,6 +90,19 @@ class RiskListResponse(BaseModel):
     page_size: int
 
 
+class RiskStatistics(BaseModel):
+    total: int
+    pending_review_count: int
+    active_remediation_count: int
+    resolved_count: int
+    ai_involved_count: int
+    average_risk_score: float
+    severities: dict[str, int] = Field(default_factory=dict)
+    statuses: dict[str, int] = Field(default_factory=dict)
+    categories: dict[str, int] = Field(default_factory=dict)
+    contract_types: dict[str, int] = Field(default_factory=dict)
+
+
 class RiskTransitionRequest(BaseModel):
     expected_revision: int = Field(ge=1)
     reason: str | None = Field(default=None, max_length=1000)

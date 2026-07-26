@@ -151,28 +151,28 @@ function formatDate(value: string | null) {
 </template>
 
 <style scoped>
-.dashboard-skeleton { padding: 24px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+.dashboard-skeleton { padding: 24px; border: 1px solid var(--glass-border); border-radius: var(--radius-lg); background: var(--glass-bg); backdrop-filter: blur(16px); }
 .dashboard-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
-.dashboard-metrics :deep(.common-metric-card > small) { display: block; margin-top: 8px; color: var(--text-muted); font-size: 11px; }
-.dashboard-metrics :deep(.common-metric-card > strong) { min-height: 34px; font-size: 26px; }
+.dashboard-metrics :deep(.common-metric-card > small) { display: block; margin-top: 8px; color: var(--text-secondary); font-size: 11px; }
+.dashboard-metrics :deep(.common-metric-card > strong) { min-height: 34px; font-size: 30px; }
 .dashboard-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.dashboard-panel { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); }
-.dashboard-panel > header { min-height: 68px; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); }
-.dashboard-panel h2 { margin: 0; font-size: 16px; line-height: 24px; }
-.dashboard-panel header p { margin: 2px 0 0; color: var(--text-muted); font-size: 12px; }
+.dashboard-panel { min-width: 0; overflow: hidden; border: 1px solid var(--glass-border); border-radius: var(--radius-lg); background: var(--glass-bg); backdrop-filter: blur(16px); box-shadow: var(--shadow-card); }
+.dashboard-panel > header { min-height: 68px; display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid rgba(255, 255, 255, 0.68); }
+.dashboard-panel h2 { margin: 0; color: var(--text-primary); font-size: 16px; line-height: 24px; font-weight: 700; }
+.dashboard-panel header p { margin: 2px 0 0; color: var(--text-secondary); font-size: 12px; }
 .dashboard-chart { width: 100%; height: 300px; }
 .dashboard-panel :deep(.common-state) { min-height: 300px; border: 0; border-radius: 0; box-shadow: none; }
 .dashboard-list-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.8fr); gap: 20px; margin-top: 20px; }
 .recent-task-panel { overflow-x: auto; }
 .todo-list { padding: 10px; }
-.todo-item { display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px; border-radius: var(--radius-md); }
-.todo-item:hover { background: var(--surface-soft); }
+.todo-item { display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px; border-radius: var(--radius-md); transition: background var(--transition-fast), box-shadow var(--transition-fast); }
+.todo-item:hover { background: rgba(255, 255, 255, 0.72); box-shadow: 0 3px 10px rgba(51, 65, 112, 0.05); }
 .todo-item__mark { align-self: stretch; border-radius: 2px; background: var(--risk-medium); }
 .todo-item strong { font-size: 13px; }
 .todo-item p { margin: 3px 0; color: var(--text-secondary); font-size: 12px; line-height: 18px; }
 .todo-item small { color: var(--text-muted); font-size: 11px; }
 .todo-item > span:last-child { color: var(--primary); font-size: 12px; font-weight: 700; }
-.statistics-notes { margin-top: 16px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-secondary); background: var(--surface-soft); font-size: 12px; }
+.statistics-notes { margin-top: 20px; padding: 14px 18px; border: 1px solid var(--glass-border); border-radius: var(--radius-md); color: var(--text-secondary); background: rgba(255, 255, 255, 0.46); backdrop-filter: blur(10px); font-size: 12px; }
 .statistics-notes summary { cursor: pointer; font-weight: 700; }
 .statistics-notes ul { margin: 10px 0 0; padding-left: 20px; }
 .statistics-notes li + li { margin-top: 4px; }

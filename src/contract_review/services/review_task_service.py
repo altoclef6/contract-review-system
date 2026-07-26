@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import secrets
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from time import monotonic, sleep
 from typing import Any
 from uuid import uuid4
 
@@ -18,6 +22,7 @@ from contract_review.schemas.review_task import (
     ReviewTaskRecord,
     ReviewTaskStatus,
 )
+from contract_review.services.local_task_executor import local_task_executor
 from contract_review.services.review_service import ReviewService
 
 
@@ -33,8 +38,13 @@ class ReviewTaskConflictError(ReviewTaskError):
     pass
 
 
+class ReviewTaskUnavailable(ReviewTaskError):
+    pass
+
+
 class ReviewTaskService:
     _lock = threading.Lock()
+    _store_lock_key = "review-task-store:lock"
 
     def __init__(self, settings: Settings, graph: Any | None = None) -> None:
         self.settings = settings
@@ -43,7 +53,7 @@ class ReviewTaskService:
         self.cache = CacheService(settings)
 
     def create_task(self, payload: ReviewTaskCreate, actor_id: str) -> ReviewTaskRecord:
-        with self._lock:
+        with self._serialized_store():
             tasks = self._load()
             safe_file_path = self._validated_file_path(payload.file_path)
             idem = payload.idempotency_key or self._default_idempotency_key(payload, actor_id)
@@ -51,7 +61,7 @@ class ReviewTaskService:
             if existing and existing["status"] not in {ReviewTaskStatus.failed.value}:
                 return self._to_record(existing)
             now = self._now()
-            task = {
+            task: dict[str, Any] = {
                 "task_id": f"task_{uuid4().hex}",
                 "contract_id": payload.contract_id,
                 "contract_version_id": payload.contract_version_id,
@@ -89,29 +99,56 @@ class ReviewTaskService:
                 from contract_review.tasks.jobs import run_review_task
 
                 celery_result = run_review_task.delay(task_id)
-                self.set_celery_task_id(task_id, str(celery_result.id))
-                return self.get_task(task_id, actor_id=None, as_admin=True)
             except Exception as exc:
                 if not self.settings.review_tasks_sync_fallback:
-                    self.fail_task(task_id, "QUEUE_UNAVAILABLE", self._safe_error(exc))
+                    try:
+                        self.fail_task(task_id, "QUEUE_UNAVAILABLE", self._safe_error(exc))
+                    except ReviewTaskUnavailable as unavailable:
+                        raise unavailable from exc
                     raise ReviewTaskConflictError("review task queue unavailable") from exc
+            else:
+                try:
+                    self.set_celery_task_id(task_id, str(celery_result.id))
+                except ReviewTaskUnavailable:
+                    # The queue accepted the task. Avoid enqueueing a duplicate merely because
+                    # the informational Celery id could not be persisted during a short outage.
+                    pass
+                return self.get_task(task_id, actor_id=None, as_admin=True)
         asyncio.run(self.execute_task(task_id))
         return self.get_task(task_id, actor_id=None, as_admin=True)
 
+    async def enqueue_or_run_async(self, task_id: str) -> ReviewTaskRecord:
+        if self.settings.redis_enabled:
+            return self.enqueue_or_run(task_id)
+        if self.settings.app_mode == "desktop":
+            local_task_executor.submit(
+                self.execute_task(task_id),
+                max_concurrent=self.settings.desktop_max_concurrent_tasks,
+            )
+            return self.get_task(task_id, actor_id=None, as_admin=True)
+        await self.execute_task(task_id)
+        return self.get_task(task_id, actor_id=None, as_admin=True)
+
     async def execute_task(self, task_id: str) -> ReviewTaskRecord:
-        task = self.get_task(task_id, actor_id=None, as_admin=True)
+        try:
+            task = self.get_task(task_id, actor_id=None, as_admin=True)
+        except ReviewTaskUnavailable as exc:
+            raise ConnectionError("review task state backend unavailable") from exc
         if task.status == ReviewTaskStatus.cancelled:
             return task
         if task.status == ReviewTaskStatus.completed:
             return task
         lock_key = f"review-task-lock:{task_id}"
-        lock_acquired = self.cache.set_json(
+        lock_value = {"task_id": task_id, "owner": uuid4().hex}
+        lock_acquired = self.cache.set_if_absent_json(
             lock_key,
-            {"task_id": task_id},
-            ttl=self.settings.review_task_timeout_seconds,
+            lock_value,
+            self.settings.review_task_timeout_seconds + 60,
         )
         if self.settings.redis_enabled and not lock_acquired:
-            self.fail_task(task_id, "LOCK_UNAVAILABLE", "review task lock unavailable")
+            if not self.cache.ping():
+                raise ConnectionError("review task lock backend unavailable")
+            # Another worker owns the task. Returning current state avoids duplicate results.
             return self.get_task(task_id, actor_id=None, as_admin=True)
         try:
             self.update_stage(task_id, ReviewTaskStatus.validating)
@@ -157,10 +194,16 @@ class ReviewTaskService:
             )
         except ReviewTaskConflictError:
             self.cancel_task(task_id, actor_id=None, as_admin=True)
+        except ReviewTaskUnavailable as exc:
+            raise ConnectionError("review task state backend unavailable") from exc
         except Exception as exc:
-            self.fail_task(task_id, "TASK_FAILED", self._safe_error(exc))
+            try:
+                self.fail_task(task_id, "TASK_FAILED", self._safe_error(exc))
+            except ReviewTaskUnavailable as unavailable:
+                raise ConnectionError("review task state backend unavailable") from unavailable
         finally:
-            self.cache.delete(lock_key)
+            if lock_acquired:
+                self.cache.delete_if_json(lock_key, lock_value)
         return self.get_task(task_id, actor_id=None, as_admin=True)
 
     def list_tasks(
@@ -200,7 +243,7 @@ class ReviewTaskService:
     def cancel_task(
         self, task_id: str, actor_id: str | None, as_admin: bool = False
     ) -> ReviewTaskRecord:
-        with self._lock:
+        with self._serialized_store():
             tasks = self._load()
             task = self._find(tasks, task_id)
             if not as_admin and actor_id is not None and task["requested_by"] != actor_id:
@@ -222,7 +265,7 @@ class ReviewTaskService:
             return self._to_record(task)
 
     def retry_task(self, task_id: str, actor_id: str, as_admin: bool) -> ReviewTaskRecord:
-        with self._lock:
+        with self._serialized_store():
             tasks = self._load()
             task = self._find(tasks, task_id)
             if not as_admin and task["requested_by"] != actor_id:
@@ -258,7 +301,7 @@ class ReviewTaskService:
         return [ReviewTaskEvent.model_validate(item) for item in task.get("audit_events", [])]
 
     def update_stage(self, task_id: str, status: ReviewTaskStatus) -> None:
-        with self._lock:
+        with self._serialized_store():
             tasks = self._load()
             task = self._find(tasks, task_id)
             if task["status"] == ReviewTaskStatus.cancelled.value:
@@ -277,9 +320,13 @@ class ReviewTaskService:
             self._save(tasks)
 
     def complete_task(self, task_id: str, summary: dict[str, Any], review_id: str | None) -> None:
-        with self._lock:
+        with self._serialized_store():
             tasks = self._load()
             task = self._find(tasks, task_id)
+            if task["status"] == ReviewTaskStatus.cancelled.value:
+                raise ReviewTaskConflictError("review task cancelled")
+            if task["status"] == ReviewTaskStatus.completed.value:
+                return
             now = self._now()
             task.update(
                 status=ReviewTaskStatus.completed.value,
@@ -297,9 +344,14 @@ class ReviewTaskService:
             self._save(tasks)
 
     def fail_task(self, task_id: str, code: str, message: str) -> None:
-        with self._lock:
+        with self._serialized_store():
             tasks = self._load()
             task = self._find(tasks, task_id)
+            if task["status"] in {
+                ReviewTaskStatus.cancelled.value,
+                ReviewTaskStatus.completed.value,
+            }:
+                return
             now = self._now()
             task.update(
                 status=ReviewTaskStatus.failed.value,
@@ -314,7 +366,7 @@ class ReviewTaskService:
             self._save(tasks)
 
     def set_celery_task_id(self, task_id: str, celery_task_id: str) -> None:
-        with self._lock:
+        with self._serialized_store():
             tasks = self._load()
             task = self._find(tasks, task_id)
             task["celery_task_id"] = celery_task_id
@@ -322,14 +374,16 @@ class ReviewTaskService:
             self._save(tasks)
 
     def mark_expired_tasks(self) -> int:
-        with self._lock:
+        with self._serialized_store():
             tasks = self._load()
             now = datetime.now(timezone.utc)
             changed = 0
             for task in tasks:
                 if task["status"] in {status.value for status in TERMINAL_REVIEW_TASK_STATUSES}:
                     continue
-                heartbeat = self._parse_dt(task.get("heartbeat_at") or task.get("started_at"))
+                heartbeat = self._parse_dt(
+                    task.get("heartbeat_at") or task.get("started_at") or task.get("created_at")
+                )
                 if heartbeat and now - heartbeat > timedelta(
                     seconds=self.settings.review_task_timeout_seconds
                 ):
@@ -362,6 +416,25 @@ class ReviewTaskService:
 
     def _save(self, tasks: list[dict[str, Any]]) -> None:
         self.store.write(tasks)
+
+    @contextmanager
+    def _serialized_store(self) -> Iterator[None]:
+        with self._lock:
+            if not self.settings.redis_enabled:
+                yield
+                return
+            owner = secrets.token_urlsafe(24)
+            deadline = monotonic() + 5
+            while not self.cache.set_if_absent_json(self._store_lock_key, owner, ttl=10):
+                if not self.cache.ping():
+                    raise ReviewTaskUnavailable("review task state lock unavailable")
+                if monotonic() >= deadline:
+                    raise ReviewTaskUnavailable("review task state lock timed out")
+                sleep(0.02)
+            try:
+                yield
+            finally:
+                self.cache.delete_if_json(self._store_lock_key, owner)
 
     def _find(self, tasks: list[dict[str, Any]], task_id: str) -> dict[str, Any]:
         for task in tasks:

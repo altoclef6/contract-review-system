@@ -1,15 +1,15 @@
 :root {
-  --app-bg: #f5f7fb;
+  --app-bg: #f3f6ff;
   --surface: #ffffff;
-  --surface-soft: #f8fafc;
+  --surface-soft: rgba(248, 250, 252, 0.72);
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
-  --primary-soft: #eff6ff;
+  --primary-soft: rgba(239, 246, 255, 0.78);
   --text-primary: #172033;
   --text-secondary: #64748b;
   --text-muted: #94a3b8;
-  --border: #e5eaf2;
-  --border-strong: #d7deea;
+  --border: rgba(218, 226, 239, 0.82);
+  --border-strong: rgba(197, 209, 228, 0.94);
   --risk-critical: #991b1b;
   --risk-high: #dc2626;
   --risk-medium: #d97706;
@@ -24,12 +24,12 @@
   --font-size-lg: 16px;
   --font-size-title: 18px;
   --font-size-page: 26px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --shadow-card: 0 2px 10px rgba(23, 32, 51, 0.05);
-  --shadow-float: 0 12px 32px rgba(23, 32, 51, 0.12);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --shadow-card: 0 8px 26px rgba(51, 65, 112, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  --shadow-float: 0 18px 44px rgba(41, 52, 92, 0.13);
   --sidebar-width: 248px;
   --sidebar-collapsed-width: 72px;
   --header-height: 72px;
@@ -37,6 +37,10 @@
   --page-padding: 32px;
   --control-height: 42px;
   --transition-fast: 160ms ease;
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.78);
+  --shadow-glass: 0 24px 58px rgba(46, 56, 104, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --primary-light: #93c5fd;
 }
 
 @media (max-width: 1024px) {

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,11 +17,15 @@ from contract_review.core.config import get_settings
 from contract_review.core.exception_handlers import register_exception_handlers
 from contract_review.core.logging import configure_logging
 from contract_review.core.middleware import (
+    DesktopStartupTokenMiddleware,
     MetricsMiddleware,
     RateLimitMiddleware,
+    RequestIdMiddleware,
     SecurityHeadersMiddleware,
 )
+from contract_review.database.session import init_database
 from contract_review.graph.graph_builder import build_contract_review_graph
+from contract_review.services.local_task_executor import local_task_executor
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -30,8 +35,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
     app.state.settings = settings
+    if settings.app_mode == "desktop":
+        assert settings.desktop_data_dir is not None
+        for directory in (
+            settings.desktop_data_dir / "database",
+            settings.upload_dir,
+            settings.report_dir,
+            settings.desktop_data_dir / "logs",
+            settings.desktop_data_dir / "config",
+            settings.desktop_data_dir / "backups",
+        ):
+            directory.mkdir(parents=True, exist_ok=True)
+        init_database()
     app.state.contract_review_graph = build_contract_review_graph()
-    yield
+    try:
+        yield
+    finally:
+        await local_task_executor.shutdown()
 
 
 def render_html(template_name: str, title: str) -> HTMLResponse:
@@ -79,14 +99,21 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    if settings.app_mode == "desktop":
+        assert settings.desktop_startup_token is not None
+        app.add_middleware(
+            DesktopStartupTokenMiddleware,
+            startup_token=settings.desktop_startup_token.get_secret_value(),
+        )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
-    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware, production=settings.environment == "prod")
+    app.add_middleware(RequestIdMiddleware)
     app.add_middleware(MetricsMiddleware)
     app.add_middleware(RateLimitMiddleware, limit_per_minute=settings.rate_limit_per_minute)
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
-    def custom_openapi() -> dict:
+    def custom_openapi() -> dict[str, Any]:
         if app.openapi_schema:
             return app.openapi_schema
         schema = get_openapi(
@@ -104,7 +131,7 @@ def create_app() -> FastAPI:
         app.openapi_schema = schema
         return app.openapi_schema
 
-    app.openapi = custom_openapi
+    object.__setattr__(app, "openapi", custom_openapi)
     return app
 
 

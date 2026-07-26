@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from contract_review.core.config import Settings
+from contract_review.infrastructure.cache import CacheService
 from contract_review.schemas.review_task import ReviewTaskCreate, ReviewTaskStatus
 from contract_review.services.review_task_service import (
     ReviewTaskConflictError,
     ReviewTaskError,
     ReviewTaskPermissionError,
     ReviewTaskService,
+    ReviewTaskUnavailable,
 )
 
 
@@ -127,6 +130,24 @@ def test_task_file_must_stay_inside_upload_dir(tmp_path: Path) -> None:
         service.create_task(_payload(tmp_path / "outside.docx"), actor_id="user_1")
 
 
+def test_distributed_task_locks_fail_closed_when_redis_is_unavailable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    settings = _settings(tmp_path)
+    settings.upload_dir.mkdir(parents=True)
+    file_path = _docx(settings.upload_dir / "contract.docx", "测试合同")
+    service = ReviewTaskService(settings, graph=FakeGraph())
+    task = service.create_task(_payload(file_path), actor_id="user_1")
+    service.settings.redis_enabled = True
+    monkeypatch.setattr(CacheService, "set_if_absent_json", lambda self, key, value, ttl: False)
+    monkeypatch.setattr(CacheService, "ping", lambda self: False)
+
+    with pytest.raises(ReviewTaskUnavailable):
+        service.create_task(_payload(file_path, "idem-redis"), actor_id="user_1")
+    with pytest.raises(ConnectionError, match="backend unavailable"):
+        asyncio.run(service.execute_task(task.task_id))
+
+
 def test_cancel_retry_idor_and_expiration(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     settings.upload_dir.mkdir(parents=True)
@@ -139,6 +160,10 @@ def test_cancel_retry_idor_and_expiration(tmp_path: Path) -> None:
 
     cancelled = service.cancel_task(task.task_id, actor_id="user_1")
     assert cancelled.status == ReviewTaskStatus.cancelled
+    with pytest.raises(ReviewTaskConflictError, match="cancelled"):
+        service.complete_task(task.task_id, {}, "review_should_not_win")
+    service.fail_task(task.task_id, "LATE_FAILURE", "late worker failure")
+    assert service.get_task(task.task_id, actor_id="user_1").status == ReviewTaskStatus.cancelled
     with pytest.raises(ReviewTaskConflictError):
         service.retry_task(task.task_id, actor_id="user_1", as_admin=False)
 
@@ -157,3 +182,11 @@ def test_cancel_retry_idor_and_expiration(tmp_path: Path) -> None:
     service._save(saved)
     assert service.mark_expired_tasks() == 1
     assert service.get_task(running.task_id, actor_id="user_1").status == ReviewTaskStatus.failed
+
+    pending = service.create_task(_payload(file_path, "idem-pending"), actor_id="user_1")
+    saved = service._load()
+    raw = next(item for item in saved if item["task_id"] == pending.task_id)
+    raw["created_at"] = "2000-01-01T00:00:00+00:00"
+    service._save(saved)
+    assert service.mark_expired_tasks() == 1
+    assert service.get_task(pending.task_id, actor_id="user_1").status == ReviewTaskStatus.failed

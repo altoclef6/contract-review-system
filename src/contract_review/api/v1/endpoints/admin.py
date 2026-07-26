@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from contract_review.api.dependencies.auth import get_audit_service, get_user_service, require_role
 from contract_review.schemas.api_response import ApiResponse, api_success
@@ -78,10 +78,13 @@ async def set_user_disabled(
 )
 async def reset_user_password(
     user_id: str,
+    response: Response,
     actor: UserPublic = Depends(require_role(UserRole.admin)),
     users: UserService = Depends(get_user_service),
     audit: AuditService = Depends(get_audit_service),
 ) -> ApiResponse[ResetPasswordResponse]:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
     try:
         _, temporary_password = users.reset_password(user_id=user_id)
     except UserServiceError as exc:

@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import fitz
 from fastapi.testclient import TestClient
 
 from contract_review.core.config import get_settings
@@ -107,10 +108,14 @@ def test_version_upload_download_idor_archive_restore_and_risk_filter(
             json={"title": "Secure contract", "category": "software_development", "tags": []},
         ).json()["data"]
         contract_id = created["id"]
+        pdf = fitz.open()
+        pdf.new_page().insert_text((72, 72), "Secure contract")
+        pdf_bytes = pdf.tobytes()
+        pdf.close()
         upload = client.post(
             f"/api/v1/contracts/{contract_id}/versions/upload",
             headers=owner_headers,
-            files={"contract_file": ("../secure.pdf", b"%PDF-1.4\n% test\n", "application/pdf")},
+            files={"contract_file": ("../secure.pdf", pdf_bytes, "application/pdf")},
             data={"change_note": "Initial file", "version_type": "modified"},
         )
         assert upload.status_code == 201

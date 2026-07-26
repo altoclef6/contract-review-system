@@ -17,6 +17,7 @@ def _configure(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("REPORT_DIR", str(tmp_path / "reports"))
     monkeypatch.setenv("WORKFLOW_DATA_DIR", str(tmp_path / "workflows"))
     monkeypatch.setenv("NOTIFICATION_DATA_DIR", str(tmp_path / "notifications"))
+    monkeypatch.setenv("CONTRACT_DATA_DIR", str(tmp_path / "contracts"))
     monkeypatch.setenv("JWT_SECRET_KEY", "test-secret")
     monkeypatch.setenv("BOOTSTRAP_ADMIN_EMAIL", "admin@example.com")
     monkeypatch.setenv("BOOTSTRAP_ADMIN_PASSWORD", "Admin12345!")
@@ -117,15 +118,25 @@ def test_dashboard_employee_isolation_and_admin_scope(tmp_path: Path, monkeypatc
         )
         employee0_headers = _login(client, "employee0@example.com", "Employee12345!")
         employee1_headers = _login(client, "employee1@example.com", "Employee12345!")
+        contract_owned = client.post(
+            "/api/v1/contracts",
+            headers=employee0_headers,
+            json={"title": "Owned", "category": "other"},
+        ).json()["data"]["id"]
+        contract_other = client.post(
+            "/api/v1/contracts",
+            headers=employee1_headers,
+            json={"title": "Other", "category": "other"},
+        ).json()["data"]["id"]
         client.post(
             "/api/v1/workflows",
             headers=employee0_headers,
-            json={"contract_id": "contract_owned"},
+            json={"contract_id": contract_owned},
         )
         client.post(
             "/api/v1/workflows",
             headers=employee1_headers,
-            json={"contract_id": "contract_other"},
+            json={"contract_id": contract_other},
         )
         employee = client.get(
             "/api/v1/dashboard/summary",
@@ -140,7 +151,7 @@ def test_dashboard_employee_isolation_and_admin_scope(tmp_path: Path, monkeypatc
     assert employee.json()["data"]["metrics"]["monthly_review_count"] == 1
     assert [item["review_id"] for item in employee.json()["data"]["recent_tasks"]] == ["owned"]
     assert len(employee.json()["data"]["todos"]) == 1
-    assert "contract_owned" in employee.json()["data"]["todos"][0]["description"]
+    assert contract_owned in employee.json()["data"]["todos"][0]["description"]
     assert admin.json()["data"]["scope"] == "all"
     assert admin.json()["data"]["metrics"]["monthly_review_count"] == 2
     assert admin.json()["data"]["metrics"]["monthly_high_risk_contract_count"] == 1

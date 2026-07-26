@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+# FastAPI dependency/form markers are intentionally declared as defaults.
+# ruff: noqa: B008
 import json
 from pathlib import Path
+from typing import Any
 
 from fastapi import (
     APIRouter,
@@ -23,7 +26,7 @@ from contract_review.schemas.review import ReviewResponse
 from contract_review.services.contract_service import ContractService, ContractServiceError
 from contract_review.services.history_service import HistoryService
 from contract_review.services.review_service import ReviewService
-from contract_review.utils.file_utils import save_upload_file
+from contract_review.utils.file_utils import normalize_original_filename, save_upload_file
 
 router = APIRouter()
 
@@ -43,8 +46,8 @@ router = APIRouter()
 async def create_review(
     request: Request,
     合同类型: str = Form(
-        default="general",
-        description="合同类型：general/purchase/sales/employment/lease/nda/service/other",
+        default="auto",
+        description="默认 auto，由分类 Agent 根据合同原文自动判断；也可传入类型进行人工修正。",
     ),
     合同文件: UploadFile = File(
         ...,
@@ -80,6 +83,8 @@ async def create_review(
         file=合同文件,
         upload_dir=settings.upload_dir,
         max_size_mb=settings.max_upload_size_mb,
+        max_pdf_pages=settings.max_pdf_pages,
+        max_image_pixels=settings.max_image_pixels,
     )
     service = ReviewService(
         graph=request.app.state.contract_review_graph,
@@ -87,7 +92,7 @@ async def create_review(
     )
     result = await service.review_file(
         file_path=saved_path,
-        original_file_name=合同文件.filename or saved_path.name,
+        original_file_name=normalize_original_filename(合同文件.filename or saved_path.name),
         content_type=合同文件.content_type,
         llm_config=llm_config,
         contract_type=合同类型,
@@ -109,7 +114,7 @@ async def create_review(
 async def list_reviews(
     request: Request,
     user: UserPublic = Depends(require_permission(Permission.reviews_run)),
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     service = HistoryService(request.app.state.settings.report_dir.parent)
     records = service.list_records()
     if user.role == UserRole.admin:
@@ -122,7 +127,7 @@ async def get_review(
     request: Request,
     review_id: str,
     user: UserPublic = Depends(require_permission(Permission.reviews_run)),
-) -> dict:
+) -> dict[str, Any]:
     record = HistoryService(request.app.state.settings.report_dir.parent).get(review_id)
     if record is None:
         raise HTTPException(status_code=404, detail="未找到审查记录")
@@ -131,7 +136,10 @@ async def get_review(
         raise HTTPException(status_code=404, detail="未找到审查记录")
     if not json_path or not Path(json_path).exists():
         raise HTTPException(status_code=404, detail="报告文件不存在")
-    return json.loads(Path(json_path).read_text(encoding="utf-8"))
+    report = json.loads(Path(json_path).read_text(encoding="utf-8"))
+    if not isinstance(report, dict):
+        raise HTTPException(status_code=422, detail="审查报告格式无效")
+    return report
 
 
 @router.get("/{review_id}/download", summary="下载审查报告", operation_id="下载审查报告")

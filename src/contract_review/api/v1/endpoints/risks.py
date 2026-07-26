@@ -3,6 +3,7 @@ from __future__ import annotations
 # FastAPI dependency/query markers are intentionally declared as defaults.
 # ruff: noqa: B008
 from datetime import datetime
+from typing import NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -16,6 +17,7 @@ from contract_review.schemas.risk import (
     RiskListResponse,
     RiskRecord,
     RiskRevisionRequest,
+    RiskStatistics,
     RiskStatus,
     RiskTransitionRequest,
 )
@@ -35,7 +37,7 @@ def get_risk_service(settings: Settings = Depends(get_settings)) -> RiskService:
     return RiskService(settings)
 
 
-def _raise(exc: RiskServiceError) -> None:
+def _raise(exc: RiskServiceError) -> NoReturn:
     if isinstance(exc, RiskPermissionError):
         code = status.HTTP_403_FORBIDDEN
     elif isinstance(exc, (RiskConflictError, RiskTransitionError)):
@@ -78,6 +80,18 @@ async def list_risks(
             review_id=review_id,
         )
     )
+
+
+@router.get(
+    "/statistics",
+    response_model=ApiResponse[RiskStatistics],
+    summary="风险台账统计",
+)
+async def get_risk_statistics(
+    user: UserPublic = Depends(get_current_user),
+    risks: RiskService = Depends(get_risk_service),
+) -> ApiResponse[RiskStatistics]:
+    return api_success(risks.statistics(actor_id=user.id, actor_role=user.role.value))
 
 
 @router.get("/{risk_id}", response_model=ApiResponse[RiskRecord], summary="风险详情")

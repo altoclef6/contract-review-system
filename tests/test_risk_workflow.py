@@ -139,6 +139,19 @@ def test_risk_idor_assignment_comments_revision_and_conflict(tmp_path: Path, mon
         record = _seed(get_settings(), owner_id, "review-idor")[0]
         path = f"/api/v1/risks/{record.risk_id}"
 
+        owner_statistics = client.get(
+            "/api/v1/risks/statistics", headers=owner_headers
+        )
+        attacker_statistics = client.get(
+            "/api/v1/risks/statistics", headers=attacker_headers
+        )
+        assert owner_statistics.status_code == 200
+        assert owner_statistics.json()["data"]["total"] == 1
+        assert owner_statistics.json()["data"]["pending_review_count"] == 1
+        assert owner_statistics.json()["data"]["severities"] == {"高": 1}
+        assert attacker_statistics.status_code == 200
+        assert attacker_statistics.json()["data"]["total"] == 0
+
         assert client.get(path, headers=attacker_headers).status_code == 404
         assert (
             client.post(

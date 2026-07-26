@@ -9,6 +9,7 @@ from contract_review.api.v1.endpoints.contracts import get_contract_service
 from contract_review.core.config import Settings, get_settings
 from contract_review.schemas.api_response import ApiResponse, api_success
 from contract_review.schemas.auth import UserPublic, UserRole
+from contract_review.schemas.contract_management import ContractRecord
 from contract_review.schemas.version_comparison import (
     FeedbackStatistics,
     RiskFeedbackCreate,
@@ -25,7 +26,9 @@ def get_service(settings: Settings = Depends(get_settings)) -> RiskFeedbackServi
     return RiskFeedbackService(settings.risk_feedback_data_dir)
 
 
-def _contract_for_user(contract_id: str, user: UserPublic, contracts: ContractService):
+def _contract_for_user(
+    contract_id: str, user: UserPublic, contracts: ContractService
+) -> ContractRecord:
     try:
         contract = contracts.get_contract(contract_id)
     except ContractServiceError as exc:

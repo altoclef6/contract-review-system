@@ -34,9 +34,12 @@ class KnowledgeCenterService:
             records = []
         if not records and self.legacy_dir:
             records = self._legacy_seed()
-        return records
+        return [dict(item) for item in records if isinstance(item, dict)]
 
     def _legacy_seed(self) -> list[dict[str, Any]]:
+        legacy_dir = self.legacy_dir
+        if legacy_dir is None:
+            return []
         now = datetime.now(timezone.utc).isoformat()
         records: list[dict[str, Any]] = []
         mapping = {
@@ -44,7 +47,7 @@ class KnowledgeCenterService:
             "laws_cn.md": ("合同审查参考资料（需人工核验）", "review_guidance"),
         }
         for file_name, (title, source_type) in mapping.items():
-            path = self.legacy_dir / file_name
+            path = legacy_dir / file_name
             if not path.exists():
                 continue
             records.append(

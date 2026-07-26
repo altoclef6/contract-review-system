@@ -52,9 +52,27 @@ export interface RiskQuery {
   date_from?: string; date_to?: string; review_id?: string
 }
 
+export interface RiskStatistics {
+  total: number
+  pending_review_count: number
+  active_remediation_count: number
+  resolved_count: number
+  ai_involved_count: number
+  average_risk_score: number
+  severities: Record<string, number>
+  statuses: Record<string, number>
+  categories: Record<string, number>
+  contract_types: Record<string, number>
+}
+
 export async function fetchRisks(params: RiskQuery, signal?: AbortSignal) {
   const response = await api.get('/risks', { params, signal })
   return response.data.data as { items: RiskRecord[]; total: number; page: number; page_size: number }
+}
+
+export async function fetchRiskStatistics(signal?: AbortSignal) {
+  const response = await api.get('/risks/statistics', { signal })
+  return response.data.data as RiskStatistics
 }
 
 export async function fetchRisk(riskId: string, signal?: AbortSignal) {

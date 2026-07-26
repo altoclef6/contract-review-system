@@ -43,9 +43,11 @@ def _error_response(status_code: int, message: str) -> JSONResponse:
 
 async def contract_review_error_handler(
     request: Request,
-    exc: ContractReviewError,
+    exc: Exception,
 ) -> JSONResponse:
     _ = request
+    if not isinstance(exc, ContractReviewError):
+        raise exc
     status_code = status.HTTP_400_BAD_REQUEST
     if isinstance(exc, UploadTooLargeError):
         status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE

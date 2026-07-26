@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from langgraph.graph import END, START, StateGraph
 
 from contract_review.agents.classifier import contract_classifier_node
@@ -14,7 +16,7 @@ from contract_review.graph.routing import route_after_coordinator
 from contract_review.graph.state import ContractReviewState
 
 
-def build_contract_review_graph():
+def build_contract_review_graph() -> Any:
     """Build the core LangGraph topology for contract review.
 
     Topology:

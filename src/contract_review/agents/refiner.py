@@ -42,7 +42,7 @@ def _rule_suggestions(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-async def refiner_node(state: ContractReviewState) -> dict:
+async def refiner_node(state: ContractReviewState) -> dict[str, Any]:
     findings = state.get("compliance_findings", [])
     llm_config = state.get("llm_config")
     suggestions = _rule_suggestions(findings)

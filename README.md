@@ -14,7 +14,10 @@
 - 模型 API Key 使用 Fernet 认证加密，接口仅返回脱敏值。
 - 结构化知识条目支持版本、效力状态、来源类型、条号和 `document_id`。
 - Redis/Celery 真实异步审查任务支持阶段状态、幂等、取消、有限重试和失败恢复。
+- 上传审查默认依据正文自动分类合同；已配置模型时可使用模型分类，未配置时使用可解释内容规则，并保留置信度、依据和人工修正记录。
+- 审查成功后自动创建或关联合同中心档案与初始版本，审查、报告、风险和合同版本保持可追溯关联。
 - 风险台账支持人工确认、驳回、整改、评论、分配和操作审计。
+- 报告中心和风险台账按当前账号授权范围展示真实汇总指标、饼图和明细，不使用前端模拟数据。
 - 规则中心、知识库中心、合同版本对比、报告中心和用户权限页面均连接真实接口。
 - JSON、DOCX、PDF、Markdown 和 XLSX 报告导出。
 - 20 类完全虚构测试样本、20 份 Gold 标签和可执行评测/消融框架。
@@ -42,11 +45,12 @@ flowchart TD
     L["登录"] --> U["上传合同"]
     U --> S["扩展名、MIME、魔数、Office ZIP 安全检查"]
     S --> E["文本/OCR 提取"]
-    E --> D["60 条确定性规则"]
+    E --> C["模型或内容规则自动分类"]
+    C --> D["60 条确定性规则"]
     D --> K["有效知识条目检索"]
     K --> M["可选 LLM 语义补充"]
     M --> V["去重、校验、原文定位"]
-    V --> H["人工复核与报告"]
+    V --> H["自动归档、人工复核与报告"]
 ```
 
 ## 目录
@@ -128,20 +132,23 @@ docker compose ps
 
 ```powershell
 $env:PYTHONPATH="src"
-python -m pytest -q --cov=contract_review --cov-report=term
-python scripts/evaluate_review.py
-python scripts/benchmark_ablation.py
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pytest -q --cov=contract_review --cov-report=term --cov-fail-under=80
+.\.venv\Scripts\python.exe scripts/evaluate_review.py
+.\.venv\Scripts\python.exe scripts/benchmark_ablation.py
 Set-Location frontend
+pnpm install --frozen-lockfile --ignore-scripts
 pnpm run build
+pnpm audit --registry=https://registry.npmjs.org --audit-level moderate
 ```
 
-2026-07-13 本地验证：
+2026-07-19 隔离工作树复核：
 
-- 后端测试：87 项，87 通过，0 失败。
-- 后端整体覆盖率：85%。
-- 前端 typecheck/build：通过；入口 JS 从 1,087.02 kB 拆分为 64.86 kB，Element Plus 与 ECharts 仍是较大的独立缓存 chunk。
-- Alembic：单一 head `20260713_0007`，全新 SQLite 验证库可升级到 head。
-- Docker Compose 语法：通过；当前验证机器 Docker Desktop daemon 未启动，因此完整镜像构建未进行真实测量。
+- 后端测试：102 项，102 通过，0 失败；整体覆盖率 83.85%，门槛 80%。
+- Ruff 通过；Mypy 严格检查 124 个后端源文件通过；`pip check` 与 `pip-audit` 均未发现问题。
+- 前端 `vue-tsc -b`/生产构建通过，转换 2409 个模块；最大产物为按需加载的图表 chunk 554.08 kB（gzip 189.47 kB），`pnpm audit` 未发现已知漏洞。
+- Alembic：单一 head `20260713_0007`；全新 SQLite 验证库完成升级、回退一版和再升级；带既有用户及合同数据的 `0006 → head → 0006` 往返保持数据。
+- Docker Compose 语法、本地后端/前端镜像构建和六服务健康检查通过；并完成登录、上传虚构合同、自动分类、自动归档及报告/风险统计的容器端到端验证。
 
 ## 评测结果
 
@@ -168,6 +175,7 @@ pnpm run build
 - Legal 的“分配给我”授权关系尚未形成独立数据库模型。
 - 完整法规库需要组织提供合法、可靠、持续维护的数据源。
 - 完整 OCR 坐标依赖具体 PDF/OCR 引擎输出，当前无法定位时会安全降级为文本位置。
+- 自动分类不等于法律定性：无模型时使用可解释关键词规则，模型分类也可能出错；低置信度或关键合同必须人工确认类型与审查模板。
 
 ## Roadmap
 

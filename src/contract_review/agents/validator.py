@@ -7,7 +7,7 @@ from contract_review.graph.state import ContractReviewState, emit_stage
 from contract_review.schemas.agent import NodeTelemetry, ValidatorOutput, utcnow
 
 
-async def validator_node(state: ContractReviewState) -> dict:
+async def validator_node(state: ContractReviewState) -> dict[str, Any]:
     emit_stage(state, "VALIDATING_RESULT")
     started_at = utcnow()
     started = perf_counter()

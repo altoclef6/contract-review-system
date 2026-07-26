@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import re
 from collections.abc import Callable
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import Any, cast
 
 from contract_review.agents.classifier import contract_classifier_node
 from contract_review.agents.compliance_checker import compliance_checker_node
@@ -16,7 +17,14 @@ from contract_review.agents.refiner import refiner_node
 from contract_review.agents.rule_checker import rule_checker_node
 from contract_review.agents.validator import validator_node
 from contract_review.core.config import Settings
+from contract_review.graph.state import ContractReviewState
+from contract_review.schemas.contract_management import (
+    ContractCategory,
+    ContractCreate,
+    ContractVersionCreate,
+)
 from contract_review.schemas.review import ReviewResponse
+from contract_review.services.contract_service import ContractService, ContractServiceError
 from contract_review.services.document_loader import DocumentLoader
 from contract_review.services.history_service import HistoryService, build_history_item
 from contract_review.services.model_config_service import ModelConfigService
@@ -40,7 +48,7 @@ class ReviewService:
         original_file_name: str,
         content_type: str | None,
         llm_config: dict[str, Any] | None = None,
-        contract_type: str = "general",
+        contract_type: str = "auto",
         actor_id: str | None = None,
         contract_id: str | None = None,
         contract_version_id: str | None = None,
@@ -52,9 +60,9 @@ class ReviewService:
             stage_callback("PARSING")
         raw_text = await asyncio.to_thread(self.document_loader.load_text, file_path)
         prompt_templates = PromptTemplateService(self.settings.prompt_template_data_dir).resolve(
-            contract_type
+            "general" if contract_type == "auto" else contract_type
         )
-        initial_state = {
+        initial_state: ContractReviewState = {
             "review_id": review_id,
             "file_path": str(file_path),
             "file_name": original_file_name,
@@ -64,8 +72,9 @@ class ReviewService:
             "contract_type": contract_type,
             "prompt_templates": prompt_templates,
             "errors": [],
-            "stage_callback": stage_callback,
         }
+        if stage_callback is not None:
+            initial_state["stage_callback"] = stage_callback
         try:
             result = await self.graph.ainvoke(initial_state)
         except Exception:
@@ -77,11 +86,33 @@ class ReviewService:
             result.get("compliance_findings", []), raw_text
         )
         result["compliance_findings"] = located_findings
+        detected_contract_type = str(result.get("contract_type") or "other")
+        classification = result.get("classification", {})
+        prompt_templates = result.get("prompt_templates", prompt_templates)
+        contract_center_saved = bool(contract_id and contract_version_id)
         final_report = result.get("final_report")
         if final_report is not None:
             final_report["风险点"] = located_findings
         export_paths: dict[str, str] = {}
         if final_report:
+            if actor_id and not contract_id:
+                try:
+                    contract_id, contract_version_id = await asyncio.to_thread(
+                        self._save_to_contract_center,
+                        file_path,
+                        original_file_name,
+                        content_type,
+                        raw_text,
+                        located_findings,
+                        detected_contract_type,
+                        review_id,
+                        actor_id,
+                    )
+                    contract_center_saved = True
+                except (ContractServiceError, OSError, ValueError):
+                    result["errors"] = list(result.get("errors", [])) + [
+                        "审查已完成，但自动写入合同中心失败，请在合同中心重新上传。"
+                    ]
             if stage_callback:
                 stage_callback("GENERATING_REPORT")
             self.settings.report_dir.mkdir(parents=True, exist_ok=True)
@@ -119,7 +150,7 @@ class ReviewService:
                     final_report=final_report,
                     report_path=export_paths.get("json"),
                     exports=export_paths,
-                    contract_type=contract_type,
+                    contract_type=detected_contract_type,
                     duration_ms=round((perf_counter() - started_at) * 1000),
                     model_provider=active_model.provider.value if active_model else None,
                     model_name=active_model.model_name if active_model else None,
@@ -129,12 +160,18 @@ class ReviewService:
                     contract_id=contract_id,
                     contract_version_id=contract_version_id,
                     contract_text_path=str(text_snapshot),
+                    classification=classification,
                 ),
             )
 
         return ReviewResponse(
             review_id=review_id,
             file_name=original_file_name,
+            contract_type=detected_contract_type,
+            classification=classification,
+            contract_id=contract_id,
+            contract_version_id=contract_version_id,
+            contract_center_saved=contract_center_saved,
             contract_text=raw_text,
             status="已完成",
             extracted_fields=result.get("extracted_fields", {}),
@@ -147,9 +184,58 @@ class ReviewService:
             errors=result.get("errors", []),
         )
 
-    async def _run_deterministic_fallback(self, initial_state: dict[str, Any]) -> dict[str, Any]:
-        state = dict(initial_state)
-        state["llm_config"] = {"disabled": True}
+    def _save_to_contract_center(
+        self,
+        file_path: Path,
+        original_file_name: str,
+        content_type: str | None,
+        raw_text: str,
+        findings: list[dict[str, Any]],
+        contract_type: str,
+        review_id: str,
+        actor_id: str,
+    ) -> tuple[str, str]:
+        service = ContractService(self.settings.contract_data_dir)
+        try:
+            category = ContractCategory(contract_type)
+        except ValueError:
+            category = ContractCategory.other
+        title = Path(original_file_name).stem.strip()[:160] or "未命名合同"
+        contract = service.create_contract(
+            payload=ContractCreate(
+                title=title,
+                category=category,
+                tags=["自动归档", "智能审查"],
+                description="由智能审查流程自动创建，可在合同中心补充或修正元数据。",
+            ),
+            actor_id=actor_id,
+        )
+        digest = hashlib.sha256(file_path.read_bytes()).hexdigest()
+        version = service.add_version(
+            contract_id=contract.id,
+            payload=ContractVersionCreate(
+                file_name=original_file_name,
+                change_note="智能审查自动归档的初始版本",
+                review_id=review_id,
+                file_hash=digest,
+                text_content=raw_text,
+                risk_snapshot=findings,
+                version_type="original",
+            ),
+            actor_id=actor_id,
+            file_path=str(file_path),
+            content_type=content_type,
+            file_size=file_path.stat().st_size,
+            parse_status="ready",
+        )
+        return contract.id, version.id
+
+    async def _run_deterministic_fallback(
+        self, initial_state: ContractReviewState
+    ) -> ContractReviewState:
+        state = cast(ContractReviewState, dict(initial_state))
+        disabled_config: dict[str, Any] = {"disabled": True}
+        state["llm_config"] = disabled_config
         # LLM helpers already return a safe empty result when no provider is available.
         # Running the explicit nodes preserves deterministic extraction and rule findings.
         for node in (
@@ -164,7 +250,7 @@ class ReviewService:
         ):
             update = await node(state)
             if isinstance(update, dict):
-                state.update(update)
+                state.update(cast(ContractReviewState, update))
         return state
 
     def _attach_text_locations(

@@ -232,7 +232,7 @@ def _risk_summary(findings: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-async def compliance_checker_node(state: ContractReviewState) -> dict:
+async def compliance_checker_node(state: ContractReviewState) -> dict[str, Any]:
     emit_stage(state, "LLM_REVIEW")
     text = state.get("raw_text", "")
     fields = state.get("extracted_fields", {})

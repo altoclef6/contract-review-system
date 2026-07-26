@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 from difflib import SequenceMatcher
-from typing import Any
+from typing import Any, Literal
 
 from contract_review.schemas.contract_management import (
     ClauseDiff,
@@ -282,6 +282,8 @@ class VersionComparisonService:
             for token in old_clause.replace("。", " ").replace("，", " ").split()
             if len(token) >= 4
         ]
+        status: Literal["unresolved", "partially_resolved", "resolved", "newly_introduced"]
+        new_clause: str | None
         if old_clause and old_clause in new_text:
             status, new_clause = "unresolved", old_clause
         elif old_clause and any(token in new_text for token in tokens):

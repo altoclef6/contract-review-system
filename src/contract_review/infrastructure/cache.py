@@ -26,14 +26,18 @@ class CacheService:
                 self.enabled = False
 
     def get_json(self, key: str) -> Any | None:
+        _, value = self.get_json_status(key)
+        return value
+
+    def get_json_status(self, key: str) -> tuple[bool, Any | None]:
         if not self.enabled or self._client is None:
-            return None
+            return False, None
         try:
             value = self._client.get(key)
-            return json.loads(value) if value else None
+            return True, json.loads(value) if value else None
         except Exception as exc:  # pragma: no cover - environment dependent
             logger.warning("Redis read failed: %s", exc)
-            return None
+            return False, None
 
     def set_json(self, key: str, value: Any, ttl: int | None = None) -> bool:
         if not self.enabled or self._client is None:
@@ -49,6 +53,35 @@ class CacheService:
             logger.warning("Redis write failed: %s", exc)
             return False
 
+    def increment_window(self, key: str, ttl: int) -> int | None:
+        if not self.enabled or self._client is None:
+            return None
+        try:
+            pipeline = self._client.pipeline()
+            pipeline.incr(key)
+            pipeline.expire(key, ttl, nx=True)
+            count, _ = pipeline.execute()
+            return int(count)
+        except Exception as exc:  # pragma: no cover - environment dependent
+            logger.warning("Redis counter failed: %s", exc)
+            return None
+
+    def set_if_absent_json(self, key: str, value: Any, ttl: int) -> bool:
+        if not self.enabled or self._client is None:
+            return False
+        try:
+            return bool(
+                self._client.set(
+                    key,
+                    json.dumps(value, ensure_ascii=False, default=str),
+                    ex=ttl,
+                    nx=True,
+                )
+            )
+        except Exception as exc:  # pragma: no cover - environment dependent
+            logger.warning("Redis lock failed: %s", exc)
+            return False
+
     def delete(self, *keys: str) -> int:
         if not self.enabled or self._client is None or not keys:
             return 0
@@ -57,6 +90,20 @@ class CacheService:
         except Exception as exc:  # pragma: no cover - environment dependent
             logger.warning("Redis delete failed: %s", exc)
             return 0
+
+    def delete_if_json(self, key: str, value: Any) -> bool:
+        if not self.enabled or self._client is None:
+            return False
+        expected = json.dumps(value, ensure_ascii=False, default=str)
+        script = (
+            "if redis.call('get', KEYS[1]) == ARGV[1] then "
+            "return redis.call('del', KEYS[1]) else return 0 end"
+        )
+        try:
+            return bool(self._client.eval(script, 1, key, expected))
+        except Exception as exc:  # pragma: no cover - environment dependent
+            logger.warning("Redis lock release failed: %s", exc)
+            return False
 
     def ping(self) -> bool:
         if not self.enabled or self._client is None:

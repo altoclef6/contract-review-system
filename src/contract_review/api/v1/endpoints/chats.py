@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from contract_review.api.dependencies.auth import get_audit_service, require_permission
 from contract_review.schemas.api_response import ApiResponse, api_success
-from contract_review.schemas.auth import Permission, UserPublic
+from contract_review.schemas.auth import Permission, UserPublic, UserRole
 from contract_review.schemas.chat import (
     ChatAskRequest,
     ChatAskResponse,
@@ -32,7 +32,12 @@ async def create_chat(
     audit: AuditService = Depends(get_audit_service),
 ) -> ApiResponse[ChatSessionPublic]:
     try:
-        session = service.create(user.id, payload.review_id, payload.title)
+        session = service.create(
+            user.id,
+            payload.review_id,
+            payload.title,
+            allow_all_reviews=user.role == UserRole.admin,
+        )
     except ChatServiceError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     audit.log_operation(actor_id=user.id, action="chats.create", target=session.id)

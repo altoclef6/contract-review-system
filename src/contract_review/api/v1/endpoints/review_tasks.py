@@ -23,6 +23,7 @@ from contract_review.services.review_task_service import (
     ReviewTaskError,
     ReviewTaskPermissionError,
     ReviewTaskService,
+    ReviewTaskUnavailable,
 )
 
 router = APIRouter()
@@ -41,6 +42,8 @@ def get_task_service(
 
 
 def _raise_api_error(exc: ReviewTaskError) -> NoReturn:
+    if isinstance(exc, ReviewTaskUnavailable):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
     if isinstance(exc, ReviewTaskPermissionError):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="review task not found")
     if isinstance(exc, ReviewTaskConflictError):
@@ -60,7 +63,10 @@ async def create_review_task(
     tasks: ReviewTaskService = Depends(get_task_service),
     audit: AuditService = Depends(get_audit_service),
 ) -> ApiResponse[ReviewTaskRecord]:
-    task = tasks.create_task(payload, actor_id=user.id)
+    try:
+        task = tasks.create_task(payload, actor_id=user.id)
+    except ReviewTaskError as exc:
+        _raise_api_error(exc)
     audit.log_operation(
         actor_id=user.id,
         action="review_tasks.create",
@@ -68,7 +74,7 @@ async def create_review_task(
         metadata={"contract_id": task.contract_id, "status": task.status.value},
     )
     try:
-        task = tasks.enqueue_or_run(task.task_id)
+        task = await tasks.enqueue_or_run_async(task.task_id)
     except ReviewTaskError as exc:
         _raise_api_error(exc)
     return api_success(task, "review task created")
