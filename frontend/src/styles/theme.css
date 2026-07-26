@@ -44,6 +44,25 @@ button { color: inherit; }
   --el-font-family: var(--font-family);
 }
 
+.el-message {
+  top: 22px !important;
+  width: min(460px, calc(100vw - 32px));
+  min-width: 0;
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+}
+
+.el-message__content {
+  min-width: 0;
+  line-height: 1.55;
+}
+
+.el-message.el-message-fade-enter-from {
+  opacity: 1;
+  transform: translateX(-50%);
+}
+
 .el-button {
   min-height: 38px;
   padding: 8px 16px;
