@@ -14,7 +14,7 @@ from contract_review.services.local_task_executor import LocalTaskExecutor
 
 def test_desktop_mode_requires_strong_startup_token() -> None:
     with pytest.raises(ValidationError, match="DESKTOP_STARTUP_TOKEN is required"):
-        Settings(app_mode="desktop")
+        Settings(app_mode="desktop", desktop_startup_token=None)
 
     with pytest.raises(ValidationError, match="at least 32 characters"):
         Settings(app_mode="desktop", desktop_startup_token="short")

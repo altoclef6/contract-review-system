@@ -105,3 +105,40 @@ Desktop mode derives every mutable path from `DESKTOP_DATA_DIR` or
 the required `database`, `uploads`, `reports`, `logs`, `config`, and `backups`
 directories, and initializes the local schema. The Web/PostgreSQL configuration
 path is unchanged.
+
+## Stage 4 - PyInstaller onedir backend
+
+- Date: 2026-07-26
+- Result: passed
+
+### Changed files
+
+- `desktop/backend_entry.py`
+- `desktop/contract-review-backend.spec`
+- `scripts/build-desktop-backend.ps1`
+- `tests/test_backend_entry.py`
+
+### Commands and observed results
+
+- installed `PyInstaller 6.21.0` into the worktree virtual environment.
+- backend entry Ruff and strict Mypy gates passed.
+- focused backend-entry/desktop tests: `7 passed in 4.94s`.
+- `.\scripts\build-desktop-backend.ps1`: successful `onedir` build.
+- first EXE startup failed because the initial spec did not collect
+  `contract_review/web/static`; the spec was corrected and the backend rebuilt.
+- final backend EXE SHA-256:
+  `6CBFA6A5385D62C502852BB488EF0D0A7F0B6BF34DF9A78A0E71CE36CB1BF411`.
+- real packaged-process smoke: readiness `ready`; listener
+  `127.0.0.1:57100`; missing startup token returned 401; valid token returned
+  200; shutdown left no backend process.
+- real packaged workflow using `samples/generated/10_table_contract.docx`:
+  registration and login succeeded, review returned 201 with 14 risks, and
+  generated DOCX, JSON, Markdown, PDF, and XLSX exports. The process terminated
+  completely after the workflow.
+
+### Result
+
+The standalone `onedir` backend runs without the development Python interpreter,
+accepts the required four command-line arguments, binds only to loopback, creates
+its SQLite/data layout, enforces the startup token, performs a deterministic
+DOCX review, and exports every required report format.
