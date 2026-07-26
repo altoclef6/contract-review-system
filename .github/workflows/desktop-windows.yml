@@ -1,0 +1,79 @@
+name: Windows desktop
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "desktop/**"
+      - "frontend/**"
+      - "src/**"
+      - "scripts/build-desktop-backend.ps1"
+      - "scripts/build-windows-desktop.ps1"
+      - ".github/workflows/desktop-windows.yml"
+  push:
+    tags:
+      - "desktop-v*"
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.15.0"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+
+      - name: Build and test desktop release
+        shell: pwsh
+        run: .\scripts\build-windows-desktop.ps1
+
+      - name: Smoke test packaged backend
+        shell: pwsh
+        run: |
+          $exe = "build\desktop-backend\contract-review-backend\contract-review-backend.exe"
+          $token = [guid]::NewGuid().ToString("N")
+          $data = Join-Path $env:RUNNER_TEMP "contract-review-data"
+          $logs = Join-Path $data "logs"
+          $process = Start-Process $exe -ArgumentList "--port","57129","--data-dir",$data,"--startup-token",$token,"--log-dir",$logs -PassThru -WindowStyle Hidden
+          try {
+            $deadline = (Get-Date).AddSeconds(60)
+            do {
+              Start-Sleep -Milliseconds 500
+              try { $response = Invoke-WebRequest "http://127.0.0.1:57129/api/v1/health/ready" -UseBasicParsing } catch {}
+            } until ($response.StatusCode -eq 200 -or (Get-Date) -ge $deadline)
+            if ($response.StatusCode -ne 200) { throw "Packaged backend health check failed." }
+          } finally {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: SHA-256
+        shell: pwsh
+        run: Get-FileHash dist\windows\* -Algorithm SHA256 | Format-Table Path,Hash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ContractReviewDesktop-x64
+          path: dist/windows/*
+          if-no-files-found: error
