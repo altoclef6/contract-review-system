@@ -89,6 +89,7 @@ class Settings(BaseSettings):
     review_task_max_retries: int = 2
     desktop_startup_token: SecretStr | None = None
     desktop_max_concurrent_tasks: int = Field(default=2, ge=1, le=8)
+    desktop_data_dir: Path | None = None
 
     tesseract_cmd: str | None = None
     libreoffice_cmd: str | None = None
@@ -109,6 +110,33 @@ class Settings(BaseSettings):
                 )
             if self.redis_enabled:
                 raise ValueError("REDIS_ENABLED must be false in desktop mode")
+            data_root = self.desktop_data_dir
+            if data_root is None:
+                local_app_data = os.environ.get("LOCALAPPDATA")
+                if not local_app_data:
+                    raise ValueError(
+                        "DESKTOP_DATA_DIR or LOCALAPPDATA is required in desktop mode"
+                    )
+                data_root = Path(local_app_data) / "ContractReview"
+            data_root = data_root.expanduser().resolve()
+            self.desktop_data_dir = data_root
+            self.database_url = SecretStr(
+                f"sqlite+pysqlite:///{(data_root / 'database' / 'contract-review.db').as_posix()}"
+            )
+            self.database_enabled = True
+            self.upload_dir = data_root / "uploads"
+            self.report_dir = data_root / "reports"
+            self.contract_data_dir = data_root / "config" / "contracts"
+            self.model_config_data_dir = data_root / "config" / "model-configs"
+            self.prompt_template_data_dir = data_root / "config" / "prompt-templates"
+            self.chat_data_dir = data_root / "config" / "chats"
+            self.workflow_data_dir = data_root / "config" / "workflows"
+            self.notification_data_dir = data_root / "config" / "notifications"
+            self.security_data_dir = data_root / "config" / "security"
+            self.review_task_data_dir = data_root / "config" / "review-tasks"
+            self.rule_center_data_dir = data_root / "config" / "rule-center"
+            self.knowledge_center_data_dir = data_root / "config" / "knowledge-center"
+            self.risk_feedback_data_dir = data_root / "config" / "risk-feedback"
             self.review_tasks_sync_fallback = True
         if self.environment != "prod":
             return self

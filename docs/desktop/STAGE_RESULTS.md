@@ -75,3 +75,33 @@ per-launch token, DPAPI, and `%LOCALAPPDATA%\ContractReview`.
 all non-health API calls with constant-time token comparison, and uses a bounded
 event-loop-native executor instead of calling `asyncio.run()` inside FastAPI.
 The executor is cancelled cleanly during application shutdown.
+
+## Stage 3 - SQLite and local directories
+
+- Date: 2026-07-26
+- Result: passed
+
+### Changed files
+
+- `src/contract_review/core/config.py`
+- `src/contract_review/database/session.py`
+- `src/contract_review/main.py`
+- `tests/test_desktop_mode.py`
+
+### Commands and observed results
+
+- SQLite schema probe using `Base.metadata.create_all()` against an in-memory
+  database: all 13 mapped tables created (exit code 0).
+- focused Ruff gate: all checks passed (exit code 0).
+- focused strict Mypy gate: no issues found in 3 source files (exit code 0).
+- `.venv\Scripts\python.exe -m pytest tests/test_desktop_mode.py
+  tests/test_health.py tests/test_infrastructure.py tests/test_auth_flow.py -q`:
+  `14 passed in 8.11s` (exit code 0).
+
+### Result
+
+Desktop mode derives every mutable path from `DESKTOP_DATA_DIR` or
+`%LOCALAPPDATA%\ContractReview`, forces SQLite and database availability, creates
+the required `database`, `uploads`, `reports`, `logs`, `config`, and `backups`
+directories, and initializes the local schema. The Web/PostgreSQL configuration
+path is unchanged.

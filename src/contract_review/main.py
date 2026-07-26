@@ -23,6 +23,7 @@ from contract_review.core.middleware import (
     RequestIdMiddleware,
     SecurityHeadersMiddleware,
 )
+from contract_review.database.session import init_database
 from contract_review.graph.graph_builder import build_contract_review_graph
 from contract_review.services.local_task_executor import local_task_executor
 
@@ -34,6 +35,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
     app.state.settings = settings
+    if settings.app_mode == "desktop":
+        assert settings.desktop_data_dir is not None
+        for directory in (
+            settings.desktop_data_dir / "database",
+            settings.upload_dir,
+            settings.report_dir,
+            settings.desktop_data_dir / "logs",
+            settings.desktop_data_dir / "config",
+            settings.desktop_data_dir / "backups",
+        ):
+            directory.mkdir(parents=True, exist_ok=True)
+        init_database()
     app.state.contract_review_graph = build_contract_review_graph()
     try:
         yield
