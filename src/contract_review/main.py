@@ -17,12 +17,14 @@ from contract_review.core.config import get_settings
 from contract_review.core.exception_handlers import register_exception_handlers
 from contract_review.core.logging import configure_logging
 from contract_review.core.middleware import (
+    DesktopStartupTokenMiddleware,
     MetricsMiddleware,
     RateLimitMiddleware,
     RequestIdMiddleware,
     SecurityHeadersMiddleware,
 )
 from contract_review.graph.graph_builder import build_contract_review_graph
+from contract_review.services.local_task_executor import local_task_executor
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -33,7 +35,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings.log_level)
     app.state.settings = settings
     app.state.contract_review_graph = build_contract_review_graph()
-    yield
+    try:
+        yield
+    finally:
+        await local_task_executor.shutdown()
 
 
 def render_html(template_name: str, title: str) -> HTMLResponse:
@@ -81,6 +86,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    if settings.app_mode == "desktop":
+        assert settings.desktop_startup_token is not None
+        app.add_middleware(
+            DesktopStartupTokenMiddleware,
+            startup_token=settings.desktop_startup_token.get_secret_value(),
+        )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
     app.add_middleware(SecurityHeadersMiddleware, production=settings.environment == "prod")
     app.add_middleware(RequestIdMiddleware)

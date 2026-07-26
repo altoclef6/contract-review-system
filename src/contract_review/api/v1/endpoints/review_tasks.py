@@ -74,7 +74,7 @@ async def create_review_task(
         metadata={"contract_id": task.contract_id, "status": task.status.value},
     )
     try:
-        task = tasks.enqueue_or_run(task.task_id)
+        task = await tasks.enqueue_or_run_async(task.task_id)
     except ReviewTaskError as exc:
         _raise_api_error(exc)
     return api_success(task, "review task created")

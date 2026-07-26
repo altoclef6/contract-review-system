@@ -466,7 +466,7 @@ async def review_contract_version(
         ),
         actor_id=user.id,
     )
-    task = task_service.enqueue_or_run(task.task_id)
+    task = await task_service.enqueue_or_run_async(task.task_id)
     review_id = task.result_summary.get("review_id")
     if review_id:
         contracts.set_version_review(

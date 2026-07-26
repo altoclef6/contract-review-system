@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import secrets
 import threading
 from collections import defaultdict, deque
 from time import perf_counter, time
@@ -13,6 +14,29 @@ from starlette.types import ASGIApp
 
 from contract_review.core.logging import reset_request_id, set_request_id
 from contract_review.core.metrics import metrics_registry
+
+
+class DesktopStartupTokenMiddleware(BaseHTTPMiddleware):
+    _public_paths = {"/api/v1/health/live", "/api/v1/health/ready"}
+
+    def __init__(self, app: ASGIApp, startup_token: str) -> None:
+        super().__init__(app)
+        self.startup_token = startup_token
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        if request.url.path in self._public_paths:
+            return await call_next(request)
+        supplied = request.headers.get("x-desktop-startup-token", "")
+        if not supplied or not secrets.compare_digest(supplied, self.startup_token):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "code": 40110,
+                    "message": "desktop startup token is invalid",
+                    "data": None,
+                },
+            )
+        return await call_next(request)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

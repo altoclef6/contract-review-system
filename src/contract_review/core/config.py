@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 from functools import lru_cache
 from ipaddress import ip_network
 from pathlib import Path
@@ -19,6 +20,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "企业级多源合同智能审查系统 API"
+    app_mode: Literal["web", "desktop"] = "web"
     environment: Literal["local", "dev", "test", "prod"] = "local"
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
@@ -85,6 +87,8 @@ class Settings(BaseSettings):
     review_tasks_sync_fallback: bool = True
     review_task_timeout_seconds: int = 900
     review_task_max_retries: int = 2
+    desktop_startup_token: SecretStr | None = None
+    desktop_max_concurrent_tasks: int = Field(default=2, ge=1, le=8)
 
     tesseract_cmd: str | None = None
     libreoffice_cmd: str | None = None
@@ -93,6 +97,19 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_deployment_security(self) -> Settings:
+        if self.app_mode == "desktop":
+            if not self.desktop_startup_token:
+                raise ValueError("DESKTOP_STARTUP_TOKEN is required in desktop mode")
+            startup_token = self.desktop_startup_token.get_secret_value()
+            if len(startup_token) < 32 or not secrets.compare_digest(
+                startup_token.strip(), startup_token
+            ):
+                raise ValueError(
+                    "DESKTOP_STARTUP_TOKEN must contain at least 32 characters and no whitespace"
+                )
+            if self.redis_enabled:
+                raise ValueError("REDIS_ENABLED must be false in desktop mode")
+            self.review_tasks_sync_fallback = True
         if self.environment != "prod":
             return self
         required = {

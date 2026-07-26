@@ -22,6 +22,7 @@ from contract_review.schemas.review_task import (
     ReviewTaskRecord,
     ReviewTaskStatus,
 )
+from contract_review.services.local_task_executor import local_task_executor
 from contract_review.services.review_service import ReviewService
 
 
@@ -114,6 +115,18 @@ class ReviewTaskService:
                     pass
                 return self.get_task(task_id, actor_id=None, as_admin=True)
         asyncio.run(self.execute_task(task_id))
+        return self.get_task(task_id, actor_id=None, as_admin=True)
+
+    async def enqueue_or_run_async(self, task_id: str) -> ReviewTaskRecord:
+        if self.settings.redis_enabled:
+            return self.enqueue_or_run(task_id)
+        if self.settings.app_mode == "desktop":
+            local_task_executor.submit(
+                self.execute_task(task_id),
+                max_concurrent=self.settings.desktop_max_concurrent_tasks,
+            )
+            return self.get_task(task_id, actor_id=None, as_admin=True)
+        await self.execute_task(task_id)
         return self.get_task(task_id, actor_id=None, as_admin=True)
 
     async def execute_task(self, task_id: str) -> ReviewTaskRecord:

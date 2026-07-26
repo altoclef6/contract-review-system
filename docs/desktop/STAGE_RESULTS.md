@@ -38,3 +38,40 @@ the same gate then passed. No test was skipped.
 See `docs/adr/0001-windows-desktop-lite.md`. The accepted design uses Tauri 2,
 PyInstaller `onedir`, SQLite, loopback-only random-port communication, a
 per-launch token, DPAPI, and `%LOCALAPPDATA%\ContractReview`.
+
+## Stage 2 - backend desktop mode
+
+- Date: 2026-07-26
+- Result: passed
+
+### Changed files
+
+- `src/contract_review/core/config.py`
+- `src/contract_review/core/middleware.py`
+- `src/contract_review/main.py`
+- `src/contract_review/services/local_task_executor.py`
+- `src/contract_review/services/review_task_service.py`
+- `src/contract_review/api/v1/endpoints/contracts.py`
+- `src/contract_review/api/v1/endpoints/review_tasks.py`
+- `tests/test_desktop_mode.py`
+
+### Commands and observed results
+
+- focused Ruff gate on the changed desktop runtime modules: all checks passed
+  (exit code 0).
+- focused strict Mypy gate on five desktop runtime source files: no issues found
+  (exit code 0).
+- `.venv\Scripts\python.exe -m pytest tests/test_desktop_mode.py
+  tests/test_health.py tests/test_review_tasks.py -q`: `12 passed in 6.58s`
+  (exit code 0).
+- repository-wide Ruff was also attempted and reported 334 pre-existing
+  formatting and FastAPI `B008` findings. The focused changed-file gate is
+  clean; those unrelated baseline findings were not silently rewritten as part
+  of this stage.
+
+### Result
+
+`APP_MODE=desktop` now requires a strong per-launch token, forbids Redis, protects
+all non-health API calls with constant-time token comparison, and uses a bounded
+event-loop-native executor instead of calling `asyncio.run()` inside FastAPI.
+The executor is cancelled cleanly during application shutdown.
