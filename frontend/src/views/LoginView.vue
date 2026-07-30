@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Document, Lock, Message } from '@element-plus/icons-vue'
@@ -8,12 +8,51 @@ import { useAuthStore } from '../stores/auth'
 
 const email = ref('')
 const password = ref('')
+const rememberAccount = ref(true)
 const loading = ref(false)
 const forgotDialog = ref(false)
 const forgotEmail = ref('')
 const forgotLoading = ref(false)
 const auth = useAuthStore()
 const router = useRouter()
+const ACCOUNT_HISTORY_KEY = 'contract-review:login-account-history'
+const MAX_ACCOUNT_HISTORY = 5
+
+function readAccountHistory(): string[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(ACCOUNT_HISTORY_KEY) || '[]')
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : []
+  } catch {
+    return []
+  }
+}
+
+const accountHistory = ref<string[]>([])
+
+onMounted(() => {
+  accountHistory.value = readAccountHistory()
+  email.value = accountHistory.value[0] || ''
+  rememberAccount.value = accountHistory.value.length > 0
+})
+
+function queryAccountHistory(query: string, callback: (items: Array<{ value: string }>) => void) {
+  const keyword = query.trim().toLowerCase()
+  callback(accountHistory.value
+    .filter((item) => !keyword || item.toLowerCase().includes(keyword))
+    .map((value) => ({ value })))
+}
+
+function updateAccountHistory(account: string) {
+  const normalizedAccount = account.trim()
+  const nextHistory = accountHistory.value.filter((item) => item !== normalizedAccount)
+  if (rememberAccount.value) nextHistory.unshift(normalizedAccount)
+  accountHistory.value = nextHistory.slice(0, MAX_ACCOUNT_HISTORY)
+  try {
+    localStorage.setItem(ACCOUNT_HISTORY_KEY, JSON.stringify(accountHistory.value))
+  } catch {
+    // 浏览器禁用本地存储时不应影响正常登录。
+  }
+}
 
 async function submit() {
   if (!email.value || !password.value) {
@@ -23,6 +62,7 @@ async function submit() {
   loading.value = true
   try {
     await auth.login(email.value, password.value)
+    updateAccountHistory(email.value)
     await router.push('/dashboard')
   } catch (error: any) {
     if (!error.response) ElMessage.error('无法连接服务器，请确认后端服务正在运行')
@@ -74,12 +114,24 @@ async function submitForgotPassword() {
         <header><span>安全登录</span><h2>欢迎使用衡契</h2><p>请输入企业账号进入合同审查平台</p></header>
         <el-form label-position="top" @submit.prevent="submit">
           <el-form-item label="企业邮箱">
-            <el-input v-model="email" size="large" autocomplete="username" placeholder="name@company.com" :prefix-icon="Message" />
+            <el-autocomplete
+              v-model="email"
+              size="large"
+              autocomplete="username"
+              placeholder="name@company.com"
+              :prefix-icon="Message"
+              :fetch-suggestions="queryAccountHistory"
+              :trigger-on-focus="true"
+              clearable
+            />
           </el-form-item>
           <el-form-item label="登录密码">
             <el-input v-model="password" type="password" show-password size="large" autocomplete="current-password" placeholder="请输入登录密码" :prefix-icon="Lock" @keyup.enter="submit" />
           </el-form-item>
-          <div class="login-form-actions"><button type="button" @click="openForgotPassword">忘记密码？</button></div>
+          <div class="login-form-actions">
+            <el-checkbox v-model="rememberAccount">记住账号</el-checkbox>
+            <button type="button" @click="openForgotPassword">忘记密码？</button>
+          </div>
           <el-button type="primary" size="large" :loading="loading" class="login-submit" @click="submit">登录工作台</el-button>
         </el-form>
         <footer><i></i><span>登录即表示您同意遵守企业数据与合同保密制度</span></footer>

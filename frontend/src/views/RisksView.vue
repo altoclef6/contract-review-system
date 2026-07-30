@@ -64,7 +64,7 @@ onBeforeUnmount(() => controller?.abort())
         <el-table-column label="负责人" min-width="120"><template #default="{row}">{{ row.assignee_name || '未分配' }}</template></el-table-column>
         <el-table-column label="发现时间" min-width="165"><template #default="{row}">{{ formatDate(row.created_at) }}</template></el-table-column>
         <el-table-column label="更新时间" min-width="165"><template #default="{row}">{{ formatDate(row.updated_at) }}</template></el-table-column>
-        <el-table-column label="操作" width="90" fixed="right"><template #default="{row}"><el-button link type="primary" @click.stop="router.push(`/risks/${row.risk_id}`)">详情</el-button></template></el-table-column>
+        <el-table-column label="操作" width="110" fixed="right"><template #default="{row}"><el-button link type="primary" @click.stop="router.push(`/risks/${row.risk_id}`)">查看详情</el-button></template></el-table-column>
       </el-table>
       <EmptyState v-if="!loading && !items.length" compact title="暂无风险记录" description="完成合同审查后，持久化风险会显示在这里。" />
       <el-pagination v-if="total" v-model:current-page="filters.page" v-model:page-size="filters.page_size" layout="total, sizes, prev, pager, next" :total="total" @change="load" />
