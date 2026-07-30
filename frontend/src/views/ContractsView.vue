@@ -192,8 +192,8 @@ onBeforeUnmount(() => controller?.abort())
         <el-table-column label="风险点" width="90"><template #default="{ row }">{{ row.risk_count === null || row.risk_count === undefined ? '暂无' : `${row.risk_count}项` }}</template></el-table-column>
         <el-table-column label="更新时间" width="180"><template #default="{ row }">{{ formatDate(row.updated_at) }}</template></el-table-column>
         <el-table-column label="操作" width="310" fixed="right"><template #default="{ row }">
-          <el-button link type="primary" @click="router.push(`/contracts/${row.id}`)">详情</el-button>
-          <el-button link type="primary" :loading="actionId === row.id" @click="review(row)">发起审查</el-button>
+          <el-button link type="primary" @click="router.push(`/contracts/${row.id}`)">查看详情</el-button>
+          <el-button link type="primary" :loading="actionId === row.id" @click="review(row)">新建审查</el-button>
           <el-button link :icon="Download" @click="download(row)">下载</el-button>
           <el-dropdown trigger="click"><el-button link>更多</el-button><template #dropdown><el-dropdown-menu>
             <el-dropdown-item v-if="!['archived','deleted'].includes(row.status)" @click="confirmAction(row,'archive')">归档</el-dropdown-item>

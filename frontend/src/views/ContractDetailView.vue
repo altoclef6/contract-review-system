@@ -134,7 +134,7 @@ onBeforeUnmount(() => controller?.abort())
         <el-button @click="router.push('/contracts')">返回列表</el-button>
         <el-button :icon="Upload" @click="uploadVisible=true">上传新版本</el-button>
         <el-button :icon="Download" @click="download()">下载</el-button>
-        <el-button type="primary" :loading="acting" @click="review()">发起审查</el-button>
+        <el-button type="primary" :loading="acting" @click="review()">新建审查</el-button>
         <el-button :loading="acting" @click="toggleArchive">{{ ['archived','deleted'].includes(contract?.status || '') ? '恢复' : '归档' }}</el-button>
       </template>
     </PageHeader>
