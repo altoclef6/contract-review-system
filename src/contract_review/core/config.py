@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     rule_center_data_dir: Path = Path("data/rule-center")
     knowledge_center_data_dir: Path = Path("data/knowledge-center")
     risk_feedback_data_dir: Path = Path("data/risk-feedback")
+    legal_knowledge_data_dir: Path = Path("data/legal-knowledge")
     max_upload_size_mb: int = 50
     max_pdf_pages: int = 500
     max_image_pixels: int = 80_000_000
@@ -137,6 +138,7 @@ class Settings(BaseSettings):
             self.rule_center_data_dir = data_root / "config" / "rule-center"
             self.knowledge_center_data_dir = data_root / "config" / "knowledge-center"
             self.risk_feedback_data_dir = data_root / "config" / "risk-feedback"
+            self.legal_knowledge_data_dir = data_root / "config" / "legal-knowledge"
             self.review_tasks_sync_fallback = True
         if self.environment != "prod":
             return self

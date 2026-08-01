@@ -42,16 +42,30 @@ class AuditService:
         self,
         *,
         actor_id: str | None,
+        company_id: str | None = None,
         action: str,
         target: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        request_id: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        result: str = "success",
         metadata: dict[str, Any] | None = None,
     ) -> None:
         self._append(
             self.operation_log_path,
             {
                 "actor_id": actor_id,
+                "company_id": company_id,
                 "action": action,
                 "target": target,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "request_id": request_id,
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "result": result,
                 "metadata": metadata or {},
             },
         )
@@ -98,8 +112,15 @@ class AuditService:
                 session.add(
                     AuditLogModel(
                         actor_id=payload.get("actor_id") or payload.get("user_id"),
+                        company_id=payload.get("company_id"),
                         action=str(payload.get("action") or "auth.login"),
+                        resource_type=payload.get("resource_type"),
+                        resource_id=payload.get("resource_id"),
                         target=payload.get("target") or payload.get("email"),
+                        request_id=payload.get("request_id"),
+                        ip_address=payload.get("ip_address"),
+                        user_agent=payload.get("user_agent"),
+                        result=str(payload.get("result") or "success"),
                         details=record,
                     )
                 )

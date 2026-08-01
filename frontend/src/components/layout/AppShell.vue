@@ -2,7 +2,7 @@
 import AppHeader from './AppHeader.vue'
 import AppSidebar from './AppSidebar.vue'
 
-type UserRole = 'admin' | 'legal' | 'employee'
+type UserRole = 'admin' | 'company_admin' | 'legal_manager' | 'legal' | 'member' | 'employee'
 
 defineProps<{
   collapsed: boolean

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 from contract_review.graph.state import ContractReviewState
 from contract_review.services.knowledge_service import KnowledgeService
 from contract_review.services.risk_scoring import calculate_risk_score
 
 
-async def coordinator_node(state: ContractReviewState) -> dict[str, Any]:
+async def coordinator_node(state: ContractReviewState) -> dict:
     if state.get("final_report"):
         return {"next_step": "finish"}
 
@@ -28,7 +27,7 @@ async def coordinator_node(state: ContractReviewState) -> dict[str, Any]:
     risk_summary = state.get("risk_summary", {})
     extracted_fields = state.get("extracted_fields", {})
     risk_score = calculate_risk_score(findings)
-    knowledge_hits = KnowledgeService().retrieve(findings)
+    knowledge_hits = state.get("knowledge_hits") or KnowledgeService().retrieve(findings)
     overall_level = risk_summary.get("总体风险等级", "低风险")
     if risk_score.get("风险等级"):
         overall_level = risk_score["风险等级"]

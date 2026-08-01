@@ -121,6 +121,8 @@ class VersionCompareRequest(BaseModel):
 
 class ContractRecord(BaseModel):
     id: str
+    company_id: str | None = None
+    department_id: str | None = None
     title: str
     category: ContractCategory
     tags: list[str]

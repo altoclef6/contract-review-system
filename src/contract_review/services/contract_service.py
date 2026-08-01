@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from contract_review.core.config import get_settings
+from contract_review.database.models import UserModel
+from contract_review.database.session import get_session_factory
 from contract_review.infrastructure.document_store import JsonDocumentStore
 from contract_review.schemas.contract_management import (
     ContractCategory,
@@ -60,7 +63,14 @@ class ContractService:
         self.path = data_dir / "contracts.json"
         self.store = JsonDocumentStore(self.path, "contracts")
 
-    def create_contract(self, *, payload: ContractCreate, actor_id: str) -> ContractRecord:
+    def create_contract(
+        self,
+        *,
+        payload: ContractCreate,
+        actor_id: str,
+        company_id: str | None = None,
+        department_id: str | None = None,
+    ) -> ContractRecord:
         with self._lock:
             records = self._load()
             now = self._now()
@@ -96,6 +106,8 @@ class ContractService:
                 "created_at": now,
                 "updated_at": now,
                 "created_by": actor_id,
+                "company_id": company_id,
+                "department_id": department_id,
                 "updated_by": actor_id,
                 "versions": versions,
                 "current_version": len(versions),
@@ -121,15 +133,17 @@ class ContractService:
         owner_names: dict[str, str] | None = None,
         actor_id: str | None = None,
         actor_role: str | None = None,
+        company_id: str | None = None,
     ) -> ContractListResponse:
         latest_reviews = self._latest_reviews_by_contract(review_records or [])
         records = [
-            self._to_record(
-                self._enrich_record(record, latest_reviews, owner_names or {})
-            )
+            self._to_record(self._enrich_record(record, latest_reviews, owner_names or {}))
             for record in self._load()
         ]
-        if actor_id is not None and actor_role != "admin":
+        if company_id is not None:
+            records = [item for item in records if item.company_id == company_id]
+        company_roles = {"admin", "company_admin", "legal_manager", "legal"}
+        if actor_id is not None and actor_role not in company_roles:
             records = [item for item in records if item.created_by == actor_id]
         if not include_deleted:
             records = [item for item in records if item.status != ContractStatus.deleted]
@@ -177,10 +191,40 @@ class ContractService:
             self._enrich_record(self._find(contract_id), latest_reviews, owner_names)
         )
 
-    def require_access(self, contract_id: str, *, actor_id: str, actor_role: str) -> None:
+    def require_access(
+        self,
+        contract_id: str,
+        *,
+        actor_id: str,
+        actor_role: str,
+        company_id: str | None = None,
+    ) -> None:
         record = self._find(contract_id)
-        if actor_role != "admin" and record.get("created_by") != actor_id:
+        actor_company_id = company_id or self._actor_company_id(actor_id)
+        if record.get("company_id") is not None and record.get("company_id") != actor_company_id:
             raise ContractServiceError("合同不可访问")
+        if (
+            actor_role not in {"admin", "company_admin", "legal_manager", "legal"}
+            and record.get("created_by") != actor_id
+        ):
+            raise ContractServiceError("合同不可访问")
+
+    @staticmethod
+    def _actor_company_id(actor_id: str) -> str | None:
+        settings = get_settings()
+        if settings.database_enabled:
+            with get_session_factory()() as session:
+                user = session.get(UserModel, actor_id)
+                return user.company_id if user else None
+        users_path = settings.security_data_dir / "users.json"
+        store = JsonDocumentStore(users_path, "users")
+        records = store.read([])
+        if isinstance(records, list):
+            for user in records:
+                if user.get("id") == actor_id:
+                    value = user.get("company_id")
+                    return str(value) if value else None
+        return None
 
     def update_contract(
         self,
@@ -252,9 +296,7 @@ class ContractService:
             record = self._find_in_records(records, contract_id)
             versions = record.setdefault("versions", [])
             version = self._build_version(
-                version_no=max(
-                    (int(item.get("version_no", 0)) for item in versions), default=0
-                )
+                version_no=max((int(item.get("version_no", 0)) for item in versions), default=0)
                 + 1,
                 file_name=payload.file_name,
                 change_note=payload.change_note,
@@ -431,9 +473,7 @@ class ContractService:
         if latest:
             enriched["latest_risk_level"] = latest.get("overall_risk_level")
             counts = latest.get("risk_counts")
-            enriched["risk_count"] = (
-                _count_reported_risks(counts)
-            )
+            enriched["risk_count"] = _count_reported_risks(counts)
             review_id = latest.get("review_id")
             for version in versions:
                 if version.get("id") == latest.get("contract_version_id") or (

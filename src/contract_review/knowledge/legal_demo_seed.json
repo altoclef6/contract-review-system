@@ -1,0 +1,31 @@
+{
+  "document": {
+    "name": "法律知识库验收占位资料（待核验）",
+    "document_type": "demo_placeholder",
+    "issuing_authority": "待录入",
+    "document_number": "DEMO-PENDING-001",
+    "effect_status": "pending_effective",
+    "version_number": "demo-1.0",
+    "official_source_url": null,
+    "source_name": "系统演示占位数据",
+    "full_text": "本记录仅用于展示法律知识库结构，不包含或替代任何真实法律原文。正式使用前必须由管理员从官方来源录入并核验。",
+    "verification_status": "pending_verification",
+    "is_enabled": true
+  },
+  "topics": [
+    {"code":"DEMO-FORMATION","topic":"合同订立","clause_type":"合同订立","risk_level":"medium","keywords":["签订","订立","主体"],"risk":"合同订立要件可能不完整"},
+    {"code":"DEMO-VALIDITY","topic":"合同效力","clause_type":"合同效力","risk_level":"high","keywords":["生效","无效","效力"],"risk":"合同效力约定可能存在不确定性"},
+    {"code":"DEMO-PERFORMANCE","topic":"合同履行","clause_type":"合同履行","risk_level":"medium","keywords":["履行","交付","期限"],"risk":"履行义务和期限可能不明确"},
+    {"code":"DEMO-PAYMENT","topic":"付款条件","clause_type":"付款结算","risk_level":"high","keywords":["付款","支付","发票"],"risk":"付款节点和前置条件可能不明确"},
+    {"code":"DEMO-ACCEPTANCE","topic":"验收标准","clause_type":"验收","risk_level":"high","keywords":["验收","测试","合格"],"risk":"验收范围、标准或期限可能不完整"},
+    {"code":"DEMO-LIABILITY","topic":"违约责任","clause_type":"违约责任","risk_level":"high","keywords":["违约","赔偿","责任"],"risk":"违约责任配置可能不完整或不对等"},
+    {"code":"DEMO-PENALTY","topic":"违约金","clause_type":"违约责任","risk_level":"high","keywords":["违约金","每日","比例"],"risk":"违约金计算方式或上限可能不合理"},
+    {"code":"DEMO-TERMINATION","topic":"合同解除","clause_type":"解除终止","risk_level":"medium","keywords":["解除","终止","通知"],"risk":"合同解除条件和后续处理可能不明确"},
+    {"code":"DEMO-IP","topic":"知识产权","clause_type":"知识产权","risk_level":"high","keywords":["知识产权","著作权","源代码"],"risk":"成果权属和许可边界可能不明确"},
+    {"code":"DEMO-CONFIDENTIALITY","topic":"保密义务","clause_type":"保密义务","risk_level":"medium","keywords":["保密","商业秘密","泄露"],"risk":"保密范围、期限或责任可能不完整"},
+    {"code":"DEMO-DEPOSIT","topic":"租赁押金","clause_type":"租赁押金","risk_level":"medium","keywords":["押金","保证金","返还"],"risk":"押金扣除和返还条件可能不明确"},
+    {"code":"DEMO-EARLY-EXIT","topic":"提前解约","clause_type":"提前解约","risk_level":"medium","keywords":["提前解约","提前解除","退租"],"risk":"提前解约条件和费用可能不明确"},
+    {"code":"DEMO-LABOR","topic":"劳动合同","clause_type":"劳动合同","risk_level":"high","keywords":["劳动合同","工资","试用期"],"risk":"劳动合同核心事项可能不完整"},
+    {"code":"DEMO-DISPUTE","topic":"争议解决","clause_type":"争议解决","risk_level":"medium","keywords":["争议","法院","仲裁"],"risk":"争议解决方式或管辖约定可能不明确"}
+  ]
+}

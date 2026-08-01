@@ -75,7 +75,12 @@ async def create_contract(
     contracts: ContractService = Depends(get_contract_service),
     audit: AuditService = Depends(get_audit_service),
 ) -> ApiResponse[ContractRecord]:
-    record = contracts.create_contract(payload=payload, actor_id=user.id)
+    record = contracts.create_contract(
+        payload=payload,
+        actor_id=user.id,
+        company_id=user.company_id,
+        department_id=user.department_id,
+    )
     audit.log_operation(actor_id=user.id, action="contracts.create", target=record.id)
     return api_success(record.model_copy(update={"owner_name": user.full_name}), "合同已创建")
 
@@ -114,6 +119,7 @@ async def list_contracts(
         owner_names=owner_names,
         actor_id=user.id,
         actor_role=user.role.value,
+        company_id=user.company_id,
     )
     return api_success(data)
 

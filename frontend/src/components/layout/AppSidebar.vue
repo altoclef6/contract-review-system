@@ -16,7 +16,7 @@ import {
   Warning,
 } from '@element-plus/icons-vue'
 
-type UserRole = 'admin' | 'legal' | 'employee'
+type UserRole = 'admin' | 'company_admin' | 'legal_manager' | 'legal' | 'member' | 'employee'
 
 interface NavigationItem {
   label: string
@@ -44,8 +44,16 @@ const primaryItems: NavigationItem[] = [
 ]
 
 const supportItems: NavigationItem[] = [
-  { label: 'AI 法务助手', path: '/assistant', icon: ChatLineRound },
+  { label: 'AI 工作台', path: '/agent-workbench', icon: ChatLineRound },
+  {
+    label: '企业与成员',
+    path: '/organization',
+    icon: User,
+    roles: ['admin', 'company_admin', 'legal_manager'],
+  },
   { label: '审批流程', path: '/workflows', icon: Operation },
+  { label: '法律检索', path: '/legal-search', icon: Reading },
+  { label: '法律知识库', path: '/legal-knowledge', icon: Reading, roles: ['admin'] },
   { label: '规则中心', path: '/rules', icon: Collection, roles: ['admin', 'legal'] },
   { label: '知识库', path: '/knowledge', icon: Reading, roles: ['admin', 'legal'] },
   { label: '用户与权限', path: '/users', icon: User, roles: ['admin'] },

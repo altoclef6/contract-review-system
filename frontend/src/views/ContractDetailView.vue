@@ -134,7 +134,7 @@ onBeforeUnmount(() => controller?.abort())
         <el-button @click="router.push('/contracts')">返回列表</el-button>
         <el-button :icon="Upload" @click="uploadVisible=true">上传新版本</el-button>
         <el-button :icon="Download" @click="download()">下载</el-button>
-        <el-button type="primary" :loading="acting" @click="review()">发起审查</el-button>
+        <el-button type="primary" :loading="acting" @click="review()">新建审查</el-button>
         <el-button :loading="acting" @click="toggleArchive">{{ ['archived','deleted'].includes(contract?.status || '') ? '恢复' : '归档' }}</el-button>
       </template>
     </PageHeader>
@@ -194,15 +194,13 @@ onBeforeUnmount(() => controller?.abort())
 </template>
 
 <style scoped>
-.contract-detail { display: grid; gap: var(--space-6); min-width: 0; }
-.summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
-.summary-card { display: flex; min-height: 132px; flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-2); padding: var(--space-5); }
-.summary-card > span:first-child { color: var(--text-secondary); font-size: 13px; }
-.summary-card strong { color: var(--text-primary); font-size: 26px; }
-.summary-card small { color: var(--text-muted); }
-.detail-tabs { padding: var(--space-4) var(--space-6) var(--space-6); overflow: hidden; }
+.contract-detail { position:relative; isolation:isolate; display:grid; gap:28px; min-width:0; }.contract-detail::before { content:""; position:absolute; z-index:-1; top:70px; left:10%; width:500px; height:350px; border-radius:50%; background:radial-gradient(circle,rgba(112,150,255,.16),rgba(178,163,255,.07) 50%,transparent 73%); filter:blur(30px); pointer-events:none; }
+.summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; }.summary-card { display:flex; min-height:138px; flex-direction:column; align-items:flex-start; justify-content:center; gap:8px; padding:22px; border:1px solid rgba(255,255,255,.4); border-radius:22px; background:linear-gradient(145deg,rgba(255,255,255,.6),rgba(242,246,255,.4)); box-shadow:0 10px 40px rgba(26,41,76,.06),inset 0 1px 0 rgba(255,255,255,.72); backdrop-filter:blur(20px) saturate(130%); animation:detail-enter .5s ease both; transition:transform .22s ease,box-shadow .22s ease; }.summary-card:hover { transform:translateY(-3px); box-shadow:0 16px 48px rgba(35,52,90,.1),inset 0 1px 0 rgba(255,255,255,.8); }.summary-card > span:first-child { order:2; margin-top:2px; color:#8994a8; font-size:13px; }.summary-card strong { order:1; color:#2b3852; font-size:32px; line-height:38px; letter-spacing:-.025em; }.summary-card > .risk-level-tag,.summary-card > .status-tag { order:1; }.summary-card small { order:3; color:#9aa4b5; font-size:12px; }
+.detail-tabs { padding:16px 22px 24px; overflow:hidden; border:1px solid rgba(255,255,255,.4); border-radius:24px; background:rgba(255,255,255,.5); box-shadow:0 12px 44px rgba(29,43,76,.06); backdrop-filter:blur(22px) saturate(130%); animation:detail-enter .6s ease both; }.detail-tabs :deep(.el-tabs__nav-wrap::after) { height:1px; background:rgba(133,148,176,.13); }.detail-tabs :deep(.el-tabs__item) { color:#8b95a8; }.detail-tabs :deep(.el-tabs__item.is-active) { color:#4d69ad; }.detail-tabs :deep(.el-tabs__active-bar) { height:2px; border-radius:2px; background:#6987d8; }.detail-tabs :deep(.el-table) { --el-table-bg-color:transparent; --el-table-tr-bg-color:transparent; --el-table-header-bg-color:transparent; --el-table-row-hover-bg-color:rgba(255,255,255,.64); background:transparent; }.detail-tabs :deep(.el-table__inner-wrapper::before) { display:none; }.detail-tabs :deep(th.el-table__cell) { color:#929cad; font-size:12px; font-weight:550; }.detail-tabs :deep(td.el-table__cell) { height:60px; border-bottom-color:rgba(143,156,181,.1); }.detail-tabs :deep(.el-descriptions__body),.detail-tabs :deep(.el-descriptions__table) { background:transparent; }.detail-tabs :deep(.el-descriptions__label.el-descriptions__cell) { color:#8490a5; background:rgba(245,247,252,.4); }.detail-tabs :deep(.el-descriptions__content.el-descriptions__cell) { background:rgba(255,255,255,.3); }
 .upload-form { margin-top: var(--space-5); }
 .upload-icon { margin-bottom: var(--space-2); color: var(--primary); font-size: 28px; }
+@keyframes detail-enter { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
 @media (max-width: 1100px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 680px) { .summary-grid { grid-template-columns: 1fr; } }
+@media (max-width:680px) { .contract-detail { gap:20px; }.summary-grid { grid-template-columns:1fr; }.detail-tabs { border-radius:18px; padding-inline:14px; } }
+@media (prefers-reduced-motion:reduce) { .summary-card,.detail-tabs { animation:none; transition:none; } }
 </style>

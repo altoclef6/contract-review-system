@@ -15,7 +15,7 @@ class ContractReviewState(TypedDict, total=False):
     llm_config: dict[str, Any]
     contract_type: str
     classification: dict[str, Any]
-    knowledge_hits: list[dict[str, str]]
+    knowledge_hits: list[dict[str, Any]]
     node_telemetry: list[dict[str, Any]]
     prompt_templates: dict[str, str]
     extracted_fields: dict[str, Any]

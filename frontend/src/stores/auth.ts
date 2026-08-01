@@ -2,7 +2,16 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api, clearStoredSession } from '../api'
 
-export interface User { id: string; email: string; full_name: string; role: 'admin' | 'legal' | 'employee' }
+export type UserRole = 'admin' | 'company_admin' | 'legal_manager' | 'legal' | 'member' | 'employee'
+export interface User {
+  id: string
+  email: string
+  full_name: string
+  role: UserRole
+  company_id?: string | null
+  department_id?: string | null
+  job_title?: string | null
+}
 
 function readStoredUser(): User | null {
   try {

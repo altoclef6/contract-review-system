@@ -8,7 +8,10 @@ from pydantic import BaseModel, EmailStr, Field
 
 class UserRole(StrEnum):
     admin = "admin"
+    company_admin = "company_admin"
+    legal_manager = "legal_manager"
     legal = "legal"
+    member = "member"
     employee = "employee"
 
 
@@ -27,10 +30,34 @@ class Permission(StrEnum):
     rules_manage = "rules:manage"
     knowledge_read = "knowledge:read"
     knowledge_manage = "knowledge:manage"
+    company_manage = "company:manage"
+    departments_manage = "departments:manage"
+    members_manage = "members:manage"
+    audit_read = "audit:read"
+    agent_run = "agent:run"
+    agent_confirm = "agent:confirm"
 
 
 ROLE_PERMISSIONS: dict[UserRole, set[Permission]] = {
     UserRole.admin: set(Permission),
+    UserRole.company_admin: set(Permission) - {Permission.models_manage},
+    UserRole.legal_manager: {
+        Permission.contracts_read,
+        Permission.contracts_write,
+        Permission.reviews_run,
+        Permission.reviews_history,
+        Permission.workflows_approve,
+        Permission.notifications_read,
+        Permission.prompts_manage,
+        Permission.rules_read,
+        Permission.rules_manage,
+        Permission.knowledge_read,
+        Permission.knowledge_manage,
+        Permission.members_manage,
+        Permission.audit_read,
+        Permission.agent_run,
+        Permission.agent_confirm,
+    },
     UserRole.legal: {
         Permission.contracts_read,
         Permission.contracts_write,
@@ -43,6 +70,17 @@ ROLE_PERMISSIONS: dict[UserRole, set[Permission]] = {
         Permission.rules_manage,
         Permission.knowledge_read,
         Permission.knowledge_manage,
+        Permission.agent_run,
+        Permission.agent_confirm,
+    },
+    UserRole.member: {
+        Permission.contracts_read,
+        Permission.contracts_write,
+        Permission.reviews_run,
+        Permission.notifications_read,
+        Permission.rules_read,
+        Permission.knowledge_read,
+        Permission.agent_run,
     },
     UserRole.employee: {
         Permission.contracts_read,
@@ -51,6 +89,7 @@ ROLE_PERMISSIONS: dict[UserRole, set[Permission]] = {
         Permission.notifications_read,
         Permission.rules_read,
         Permission.knowledge_read,
+        Permission.agent_run,
     },
 }
 
@@ -60,6 +99,9 @@ class UserPublic(BaseModel):
     email: EmailStr
     full_name: str
     role: UserRole
+    company_id: str | None = None
+    department_id: str | None = None
+    job_title: str | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

@@ -15,6 +15,16 @@ from contract_review.services.rule_center_service import RuleCenterService
 def _rule_match_to_legacy(match: RuleMatch, number: int) -> dict[str, Any]:
     levels = {"low": "低", "medium": "中", "high": "高", "critical": "严重"}
     return {
+        "hasRisk": True,
+        "riskLevel": match.severity.value,
+        "riskName": match.rule_name,
+        "originalClause": match.contract_text,
+        "riskDescription": match.explanation,
+        "possibleConsequence": "需结合具体交易背景评估可能的履约和争议后果。",
+        "legalBasis": [],
+        "modificationAdvice": match.recommendation,
+        "recommendedClause": match.suggested_revision or "",
+        "confidence": match.confidence,
         "风险编号": f"R{number:03d}",
         "风险类别": match.category,
         "风险等级": levels[match.severity.value],
@@ -27,7 +37,6 @@ def _rule_match_to_legacy(match: RuleMatch, number: int) -> dict[str, Any]:
         "来源": match.source,
         "rule_id": match.rule_id,
         "risk_score": match.risk_score,
-        "confidence": match.confidence,
         "requires_human_review": match.requires_human_review,
         "start_offset": match.start_offset,
         "end_offset": match.end_offset,
@@ -47,6 +56,16 @@ def _finding(
     clause_text: str = "未在合同文本中识别到明确条款",
 ) -> dict[str, Any]:
     return {
+        "hasRisk": True,
+        "riskLevel": {"低": "low", "中": "medium", "高": "high", "严重": "critical"}.get(level, "medium"),
+        "riskName": title,
+        "originalClause": clause_text,
+        "riskDescription": reason,
+        "possibleConsequence": "需结合具体交易背景评估可能的履约和争议后果。",
+        "legalBasis": [],
+        "modificationAdvice": suggestion_direction,
+        "recommendedClause": "",
+        "confidence": 1.0,
         "风险编号": f"R{number:03d}",
         "风险类别": category,
         "风险等级": level,
@@ -195,22 +214,47 @@ def _normalize_llm_findings(
     for index, item in enumerate(items, start=start_index):
         if not isinstance(item, dict):
             continue
+        if item.get("hasRisk") is False:
+            continue
+        risk_level = str(item.get("riskLevel") or "").lower()
+        level_cn = {
+            "low": "低",
+            "medium": "中",
+            "high": "高",
+            "critical": "严重",
+        }.get(risk_level, item.get("风险等级") or item.get("等级") or "中")
+        basis = item.get("legalBasis") if isinstance(item.get("legalBasis"), list) else []
+        risk_name = item.get("riskName") or item.get("风险标题") or item.get("标题") or "AI识别风险"
+        original_clause = item.get("originalClause") or item.get("相关条款") or item.get("条款") or ""
+        description = item.get("riskDescription") or item.get("问题说明") or item.get("原因") or item.get("说明") or ""
+        advice = item.get("modificationAdvice") or item.get("修改方向") or item.get("建议") or ""
         result.append(
             {
+                "hasRisk": True,
+                "riskLevel": risk_level if risk_level in {"low", "medium", "high", "critical"} else {"低": "low", "中": "medium", "高": "high", "严重": "critical"}.get(str(level_cn), "medium"),
+                "riskName": risk_name,
+                "originalClause": original_clause,
+                "riskDescription": description,
+                "possibleConsequence": item.get("possibleConsequence") or item.get("可能后果") or "",
+                "legalBasis": basis,
+                "modificationAdvice": advice,
+                "recommendedClause": item.get("recommendedClause") or item.get("推荐条款") or "",
+                "confidence": item.get("confidence") if isinstance(item.get("confidence"), (int, float)) else 0.6,
                 "风险编号": item.get("风险编号") or f"A{index:03d}",
                 "风险类别": item.get("风险类别") or item.get("类别") or "AI补充风险",
-                "风险等级": item.get("风险等级") or item.get("等级") or "中",
+                "风险等级": level_cn,
                 "短标题": item.get("短标题")
                 or item.get("风险类别")
                 or item.get("类别")
                 or "AI风险",
-                "风险标题": item.get("风险标题") or item.get("标题") or "AI识别风险",
-                "相关条款": item.get("相关条款") or item.get("条款") or "",
-                "问题说明": item.get("问题说明") or item.get("原因") or item.get("说明") or "",
-                "审查依据": item.get("审查依据")
-                or item.get("依据")
-                or "AI结合合同文本和常见企业内控要求判断。",
-                "修改方向": item.get("修改方向") or item.get("建议") or "",
+                "风险标题": risk_name,
+                "相关条款": original_clause,
+                "问题说明": description,
+                "可能后果": item.get("possibleConsequence") or item.get("可能后果") or "",
+                "审查依据": "待后端校验模型返回的法律依据",
+                "修改方向": advice,
+                "推荐条款": item.get("recommendedClause") or item.get("推荐条款") or "",
+                "legal_basis": basis,
                 "来源": "AI增强审查",
             }
         )
@@ -232,7 +276,7 @@ def _risk_summary(findings: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-async def compliance_checker_node(state: ContractReviewState) -> dict[str, Any]:
+async def compliance_checker_node(state: ContractReviewState) -> dict:
     emit_stage(state, "LLM_REVIEW")
     text = state.get("raw_text", "")
     fields = state.get("extracted_fields", {})
@@ -253,20 +297,24 @@ async def compliance_checker_node(state: ContractReviewState) -> dict[str, Any]:
             "compliance", "你是企业合同合规审查专家。请只输出 JSON，不要输出 Markdown。"
         ),
         f"""
-请基于合同文本和结构化要素，补充识别规则审查可能遗漏的合同风险。
-风险等级只能使用：低、中、高、严重。
+请基于合同文本、结构化要素、规则审查结果和系统提供的已核验法律条文，补充识别遗漏风险。
+你只能从“可选法律依据”中选择 legalArticleId；不得自行生成、改写或猜测法律名称、条号和来源。
+没有可靠匹配时 legalBasis 必须为空数组。riskLevel 只能使用 low、medium、high、critical。
 输出 JSON：
 {{
   "风险点": [
     {{
-      "风险类别": "",
-      "风险等级": "低/中/高/严重",
-      "短标题": "2到6个汉字，例如主体缺失、金额不清、责任不足",
-      "风险标题": "",
-      "相关条款": "",
-      "问题说明": "",
-      "审查依据": "",
-      "修改方向": ""
+      "hasRisk": true,
+      "riskLevel": "low/medium/high/critical",
+      "riskName": "",
+      "originalClause": "",
+      "riskDescription": "",
+      "possibleConsequence": "",
+      "legalBasis": [{{"legalArticleId":"","lawName":"","articleNo":"","sourceUrl":""}}],
+      "modificationAdvice": "",
+      "recommendedClause": "",
+      "confidence": 0.0,
+      "风险类别": "付款结算/验收/违约责任/知识产权/保密义务/解除终止/争议解决/其他"
     }}
   ]
 }}
@@ -276,6 +324,9 @@ async def compliance_checker_node(state: ContractReviewState) -> dict[str, Any]:
 
 规则审查已发现风险：
 {json.dumps(findings, ensure_ascii=False)}
+
+可选法律依据（只允许返回其中的 legalArticleId；为空时不得引用法律）：
+{json.dumps([item for item in state.get("knowledge_hits", []) if item.get("legalArticleId")], ensure_ascii=False)}
 
 合同文本：
 {text}

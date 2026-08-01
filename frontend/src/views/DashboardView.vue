@@ -18,6 +18,13 @@ let requestController: AbortController | undefined
 const riskColors: Record<string, string> = {
   critical: '#991B1B', high: '#DC2626', medium: '#D97706', low: '#16A34A', unknown: '#94A3B8',
 }
+const riskTypeNames: Record<string, string> = {
+  dispute: '争议风险',
+  payment: '付款风险',
+  liability: '责任风险',
+  termination: '解除风险',
+  confidentiality: '保密风险',
+}
 const contractTypeNames: Record<string, string> = {
   general: '通用合同', purchase: '采购合同', sales: '销售合同', employment: '劳动合同',
   labor: '劳动合同', lease: '租赁合同', nda: '保密协议', service: '服务合同',
@@ -57,7 +64,7 @@ const riskOption = computed(() => ({
   color: summary.value?.risk_level_distribution.map((item) => riskColors[item.key]) || [],
   tooltip: { trigger: 'item' },
   legend: { bottom: 0, textStyle: { color: '#64748B' } },
-  series: [{ type: 'pie', radius: ['48%', '70%'], center: ['50%', '44%'], avoidLabelOverlap: true, label: { color: '#475569', formatter: '{b}\n{c}' }, data: summary.value?.risk_level_distribution.map((item) => ({ name: item.label, value: item.value })) || [] }],
+  series: [{ type: 'pie', radius: ['46%', '68%'], center: ['50%', '42%'], avoidLabelOverlap: true, label: { color: '#475569', formatter: '{b}\n{c} 项' }, data: summary.value?.risk_level_distribution.map((item) => ({ name: riskTypeNames[item.key] || riskTypeNames[item.label.toLowerCase()] || item.label, value: item.value })) || [] }],
 }))
 
 const typeOption = computed(() => ({
@@ -96,7 +103,7 @@ function formatDate(value: string | null) {
   <PageHeader title="企业工作台" description="基于当前授权范围查看合同审查、风险分布和真实待办。" eyebrow="Dashboard">
     <template #actions>
       <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
-      <router-link to="/review"><el-button type="primary">发起智能审查</el-button></router-link>
+      <router-link to="/review"><el-button type="primary">新建审查</el-button></router-link>
     </template>
   </PageHeader>
 
@@ -115,7 +122,7 @@ function formatDate(value: string | null) {
 
     <section class="dashboard-chart-grid">
       <article class="dashboard-panel is-wide"><header><div><h2>最近 30 天审查趋势</h2><p>按 UTC 自然日统计已完成审查</p></div></header><DashboardChart :option="trendOption" :empty="!summary.review_trend_30d.some((item) => item.count > 0)" /></article>
-      <article class="dashboard-panel"><header><div><h2>风险等级分布</h2><p>最近 30 天已完成审查</p></div></header><DashboardChart :option="riskOption" :empty="summary.risk_level_distribution.length === 0" /></article>
+      <article class="dashboard-panel"><header><div><h2>风险等级分布</h2><p>最近 30 天共识别 {{ summary.risk_level_distribution.reduce((total, item) => total + item.value, 0) }} 项风险</p></div></header><DashboardChart :option="riskOption" :empty="summary.risk_level_distribution.length === 0" /></article>
       <article class="dashboard-panel"><header><div><h2>合同类型分布</h2><p>最近 30 天已完成审查</p></div></header><DashboardChart :option="typeOption" :empty="summary.contract_type_distribution.length === 0" /></article>
       <article class="dashboard-panel is-wide"><header><div><h2>高频风险规则 Top 5</h2><p>仅统计具有完整规则快照的最近 30 天审查</p></div></header><DashboardChart :option="rulesOption" :empty="!summary.top_risk_rules?.length" :empty-title="summary.top_risk_rules === null ? '暂无完整规则排名' : '暂无规则命中'" :empty-description="summary.unavailable_reasons.top_risk_rules || '当前统计范围内没有确定性规则命中。'" /></article>
     </section>
@@ -152,16 +159,16 @@ function formatDate(value: string | null) {
 
 <style scoped>
 .dashboard-skeleton { padding: 24px; border: 1px solid var(--glass-border); border-radius: var(--radius-lg); background: var(--glass-bg); backdrop-filter: blur(16px); }
-.dashboard-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+.dashboard-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 20px; margin-bottom: 24px; }
 .dashboard-metrics :deep(.common-metric-card > small) { display: block; margin-top: 8px; color: var(--text-secondary); font-size: 11px; }
-.dashboard-metrics :deep(.common-metric-card > strong) { min-height: 34px; font-size: 30px; }
+.dashboard-metrics :deep(.common-metric-card > strong) { min-height: 32px; color: #273142; font-size: 23px; line-height: 32px; }
 .dashboard-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.dashboard-panel { min-width: 0; overflow: hidden; border: 1px solid var(--glass-border); border-radius: var(--radius-lg); background: var(--glass-bg); backdrop-filter: blur(16px); box-shadow: var(--shadow-card); }
-.dashboard-panel > header { min-height: 68px; display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid rgba(255, 255, 255, 0.68); }
-.dashboard-panel h2 { margin: 0; color: var(--text-primary); font-size: 16px; line-height: 24px; font-weight: 700; }
+.dashboard-panel { min-width: 0; overflow: hidden; border: 1px solid #e6e9ef; border-radius: 10px; background: var(--surface); box-shadow: 0 1px 3px rgba(23, 32, 51, 0.04); }
+.dashboard-panel > header { min-height: 62px; display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+.dashboard-panel h2 { margin: 0; color: #273142; font-size: 15px; line-height: 22px; font-weight: 600; }
 .dashboard-panel header p { margin: 2px 0 0; color: var(--text-secondary); font-size: 12px; }
-.dashboard-chart { width: 100%; height: 300px; }
-.dashboard-panel :deep(.common-state) { min-height: 300px; border: 0; border-radius: 0; box-shadow: none; }
+.dashboard-chart { width: 100%; height: 260px; }
+.dashboard-panel :deep(.common-state) { min-height: 260px; border: 0; border-radius: 0; box-shadow: none; }
 .dashboard-list-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.8fr); gap: 20px; margin-top: 20px; }
 .recent-task-panel { overflow-x: auto; }
 .todo-list { padding: 10px; }

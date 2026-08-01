@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from contract_review.api.v1.endpoints import (
     admin,
+    agent_tasks,
     analysis_history,
     auth,
     chats,
@@ -9,10 +10,12 @@ from contract_review.api.v1.endpoints import (
     dashboard,
     health,
     knowledge_center,
+    legal_knowledge,
     llm,
     model_configs,
     monitoring,
     notifications,
+    organization,
     prompt_templates,
     reader,
     review_tasks,
@@ -25,6 +28,8 @@ from contract_review.api.v1.endpoints import (
 )
 
 api_router = APIRouter()
+api_router.include_router(agent_tasks.router, prefix="/agent-tasks", tags=["Agent 工作台"])
+api_router.include_router(organization.router, prefix="/organization", tags=["企业与成员"])
 api_router.include_router(auth.router, prefix="/auth", tags=["认证与账号"])
 api_router.include_router(admin.router, prefix="/admin", tags=["后台管理"])
 api_router.include_router(contracts.router, prefix="/contracts", tags=["合同管理"])
@@ -40,6 +45,9 @@ api_router.include_router(review_tasks.router, prefix="/review-tasks", tags=["�
 api_router.include_router(risks.router, prefix="/risks", tags=["风险台账与人工复核"])
 api_router.include_router(rule_center.router, prefix="/rules", tags=["规则中心"])
 api_router.include_router(knowledge_center.router, prefix="/knowledge", tags=["知识库中心"])
+api_router.include_router(
+    legal_knowledge.router, prefix="/legal-knowledge", tags=["自建法律知识库"]
+)
 api_router.include_router(
     version_comparisons.router, prefix="/version-comparisons", tags=["合同版本对比"]
 )
