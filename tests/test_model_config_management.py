@@ -13,6 +13,7 @@ def _configure_stores(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("SECURITY_DATA_DIR", str(tmp_path / "security"))
     monkeypatch.setenv("MODEL_CONFIG_DATA_DIR", str(tmp_path / "model-configs"))
     monkeypatch.setenv("JWT_SECRET_KEY", "test-secret")
+    monkeypatch.setenv("MODEL_CREDENTIAL_ENCRYPTION_KEY", "test-secret")
     monkeypatch.setenv("BOOTSTRAP_ADMIN_EMAIL", "admin@example.com")
     monkeypatch.setenv("BOOTSTRAP_ADMIN_PASSWORD", "Admin12345!")
     get_settings.cache_clear()
@@ -126,6 +127,7 @@ async def test_active_model_config_is_used_for_llm_calls(tmp_path: Path, monkeyp
             model_name="deepseek-chat",
             temperature=0.2,
             max_tokens=2048,
+            timeout_seconds=45,
         ),
         actor_id="user_admin",
     )
@@ -150,3 +152,4 @@ async def test_active_model_config_is_used_for_llm_calls(tmp_path: Path, monkeyp
     assert captured["api_key"] == "sk-active-config"
     assert captured["model_name"] == "deepseek-chat"
     assert captured["max_tokens"] == 2048
+    assert captured["timeout_seconds"] == 45

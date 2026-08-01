@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 from uuid import uuid4
@@ -8,6 +8,7 @@ from uuid import uuid4
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -87,6 +88,25 @@ class ContractVersionModel(Base, TimestampMixin):
         ForeignKey("contract_versions.id"), index=True
     )
     version_type: Mapped[str] = mapped_column(String(30), default="original", index=True)
+
+
+class ContractClauseModel(Base):
+    __tablename__ = "contract_clause"
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: new_id("clause")
+    )
+    contract_id: Mapped[str] = mapped_column(String(64), index=True)
+    contract_version_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    clause_no: Mapped[str | None] = mapped_column(String(120), index=True)
+    clause_title: Mapped[str | None] = mapped_column(String(300))
+    clause_type: Mapped[str] = mapped_column(String(120), index=True, default="其他")
+    clause_content: Mapped[str] = mapped_column(Text)
+    page_number: Mapped[int | None] = mapped_column(Integer)
+    start_position: Mapped[int] = mapped_column(Integer)
+    end_position: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
 
 
 class ReviewModel(Base, TimestampMixin):
@@ -262,3 +282,129 @@ class KnowledgeDocumentModel(Base, TimestampMixin):
     content: Mapped[str] = mapped_column(Text)
     source_url: Mapped[str | None] = mapped_column(String(1000))
     checksum: Mapped[str] = mapped_column(String(64), index=True)
+
+
+class LegalDocumentModel(Base, TimestampMixin):
+    __tablename__ = "legal_document"
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: new_id("law")
+    )
+    name: Mapped[str] = mapped_column(String(300), index=True)
+    document_type: Mapped[str] = mapped_column(String(80), index=True)
+    issuing_authority: Mapped[str | None] = mapped_column(String(255))
+    document_number: Mapped[str | None] = mapped_column(String(120), index=True)
+    publication_date: Mapped[date | None] = mapped_column(Date)
+    effective_date: Mapped[date | None] = mapped_column(Date)
+    expiry_date: Mapped[date | None] = mapped_column(Date)
+    effect_status: Mapped[str] = mapped_column(String(40), index=True)
+    version_number: Mapped[str] = mapped_column(String(80))
+    official_source_url: Mapped[str | None] = mapped_column(String(1000))
+    source_name: Mapped[str] = mapped_column(String(255))
+    full_text: Mapped[str] = mapped_column(Text, default="")
+    verification_status: Mapped[str] = mapped_column(String(40), index=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_by: Mapped[str] = mapped_column(String(64), index=True)
+
+
+class LegalDocumentVersionModel(Base):
+    __tablename__ = "legal_document_version"
+    __table_args__ = (UniqueConstraint("legal_document_id", "version_number"),)
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: new_id("lawver")
+    )
+    legal_document_id: Mapped[str] = mapped_column(
+        ForeignKey("legal_document.id", ondelete="CASCADE"), index=True
+    )
+    version_number: Mapped[str] = mapped_column(String(80))
+    publication_date: Mapped[date | None] = mapped_column(Date)
+    effective_date: Mapped[date | None] = mapped_column(Date)
+    expiry_date: Mapped[date | None] = mapped_column(Date)
+    effect_status: Mapped[str] = mapped_column(String(40), index=True)
+    official_source_url: Mapped[str | None] = mapped_column(String(1000))
+    source_name: Mapped[str] = mapped_column(String(255))
+    full_text: Mapped[str] = mapped_column(Text, default="")
+    verification_status: Mapped[str] = mapped_column(String(40), index=True)
+    change_summary: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class LegalArticleModel(Base, TimestampMixin):
+    __tablename__ = "legal_article"
+    __table_args__ = (
+        UniqueConstraint("legal_document_version_id", "article_no"),
+    )
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: new_id("article")
+    )
+    legal_document_id: Mapped[str] = mapped_column(
+        ForeignKey("legal_document.id", ondelete="CASCADE"), index=True
+    )
+    legal_document_version_id: Mapped[str] = mapped_column(
+        ForeignKey("legal_document_version.id", ondelete="CASCADE"), index=True
+    )
+    chapter_no: Mapped[str | None] = mapped_column(String(80))
+    chapter_name: Mapped[str | None] = mapped_column(String(255))
+    article_no: Mapped[str] = mapped_column(String(120), index=True)
+    article_no_numeric: Mapped[int | None] = mapped_column(Integer, index=True)
+    title: Mapped[str | None] = mapped_column(String(300))
+    content: Mapped[str] = mapped_column(Text)
+    keywords: Mapped[list[str]] = mapped_column(JSON, default=list)
+    legal_topics: Mapped[list[str]] = mapped_column(JSON, default=list)
+    contract_types: Mapped[list[str]] = mapped_column(JSON, default=list)
+    is_effective: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    verification_status: Mapped[str] = mapped_column(String(40), index=True)
+    created_by: Mapped[str] = mapped_column(String(64), index=True)
+
+
+class ContractRiskRuleModel(Base, TimestampMixin):
+    __tablename__ = "contract_risk_rule"
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: new_id("legalrule")
+    )
+    rule_code: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    rule_name: Mapped[str] = mapped_column(String(255))
+    contract_types: Mapped[list[str]] = mapped_column(JSON, default=list)
+    clause_type: Mapped[str] = mapped_column(String(120), index=True)
+    risk_level: Mapped[str] = mapped_column(String(20), index=True)
+    trigger_condition: Mapped[str] = mapped_column(Text)
+    keywords: Mapped[list[str]] = mapped_column(JSON, default=list)
+    model_prompt: Mapped[str] = mapped_column(Text, default="")
+    risk_description: Mapped[str] = mapped_column(Text)
+    possible_consequence: Mapped[str] = mapped_column(Text, default="")
+    modification_advice: Mapped[str] = mapped_column(Text)
+    recommended_clause: Mapped[str] = mapped_column(Text, default="")
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_by: Mapped[str] = mapped_column(String(64), index=True)
+
+
+class RiskRuleLegalArticleModel(Base):
+    __tablename__ = "risk_rule_legal_article"
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: new_id("rulearticle")
+    )
+    risk_rule_id: Mapped[str] = mapped_column(
+        ForeignKey("contract_risk_rule.id", ondelete="CASCADE"), index=True
+    )
+    legal_article_id: Mapped[str] = mapped_column(
+        ForeignKey("legal_article.id", ondelete="CASCADE"), index=True
+    )
+    created_by: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ReviewIssueLegalArticleModel(Base):
+    __tablename__ = "review_issue_legal_article"
+    __table_args__ = (UniqueConstraint("review_issue_id", "legal_article_id"),)
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: new_id("issuearticle")
+    )
+    review_issue_id: Mapped[str] = mapped_column(
+        ForeignKey("risk_findings.id", ondelete="CASCADE"), index=True
+    )
+    legal_article_id: Mapped[str] = mapped_column(
+        ForeignKey("legal_article.id", ondelete="RESTRICT"), index=True
+    )
+    review_id: Mapped[str] = mapped_column(String(64), index=True)
+    created_by: Mapped[str | None] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

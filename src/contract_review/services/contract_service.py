@@ -289,6 +289,12 @@ class ContractService:
         record = self._find(contract_id)
         return [ContractVersion.model_validate(item) for item in record.get("versions", [])]
 
+    def find_version_by_hash(self, contract_id: str, file_hash: str) -> ContractVersion | None:
+        for version in self.list_versions(contract_id):
+            if version.file_hash and version.file_hash == file_hash:
+                return version
+        return None
+
     def compare_versions(
         self, contract_id: str, payload: VersionCompareRequest
     ) -> VersionComparison:
@@ -407,9 +413,23 @@ class ContractService:
         if latest:
             enriched["latest_risk_level"] = latest.get("overall_risk_level")
             counts = latest.get("risk_counts")
-            enriched["risk_count"] = (
-                sum(int(value) for value in counts.values()) if isinstance(counts, dict) else None
-            )
+            numeric_counts: list[int] = []
+            if isinstance(counts, dict):
+                for value in counts.values():
+                    try:
+                        numeric_counts.append(int(value))
+                    except (TypeError, ValueError):
+                        # Some persisted summaries also contain a textual
+                        # overall-risk label. It is metadata, not a count.
+                        continue
+            if numeric_counts:
+                largest = max(numeric_counts)
+                remaining = sum(numeric_counts) - largest
+                # Current summaries contain both a total and the severity
+                # buckets; legacy summaries contain only the buckets.
+                enriched["risk_count"] = largest if largest == remaining else sum(numeric_counts)
+            else:
+                enriched["risk_count"] = None
             review_id = latest.get("review_id")
             for version in versions:
                 if version.get("id") == latest.get("contract_version_id") or (

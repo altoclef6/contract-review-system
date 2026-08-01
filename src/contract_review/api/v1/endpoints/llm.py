@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import time
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
+from contract_review.api.dependencies.auth import require_permission
 from contract_review.llm.json_client import call_llm_json
+from contract_review.schemas.auth import Permission, UserPublic
 
 router = APIRouter()
 
@@ -32,7 +34,10 @@ class LLMValidateResponse(BaseModel):
     summary="验证模型 API Key",
     operation_id="验证模型APIKey",
 )
-async def validate_llm_config(payload: LLMValidateRequest) -> LLMValidateResponse:
+async def validate_llm_config(
+    payload: LLMValidateRequest,
+    _: UserPublic = Depends(require_permission(Permission.models_manage)),
+) -> LLMValidateResponse:
     started = time.perf_counter()
     result = await call_llm_json(
         "你是模型连通性检查器。请只输出 JSON，不要输出 Markdown。",

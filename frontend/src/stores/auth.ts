@@ -4,8 +4,18 @@ import { api } from '../api'
 
 export interface User { id: string; email: string; full_name: string; role: 'admin' | 'legal' | 'employee' }
 
+function readStoredUser(): User | null {
+  try {
+    const value = JSON.parse(localStorage.getItem('user') || 'null')
+    return value && typeof value === 'object' ? value as User : null
+  } catch {
+    localStorage.removeItem('user')
+    return null
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>(JSON.parse(localStorage.getItem('user') || 'null'))
+  const user = ref<User | null>(readStoredUser())
   const loggedIn = computed(() => Boolean(user.value && localStorage.getItem('access_token')))
   async function login(email: string, password: string) {
     const { data } = await api.post('/auth/login', { email, password })

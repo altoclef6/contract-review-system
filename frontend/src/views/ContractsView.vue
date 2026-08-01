@@ -17,6 +17,7 @@ import {
   restoreContract,
   startContractReview,
   uploadContractVersion,
+  validateContractFile,
   type ContractRecord,
 } from '../services/contracts'
 
@@ -92,6 +93,10 @@ function openCreate(withUpload: boolean) {
 async function submitCreate() {
   if (!form.title.trim()) return ElMessage.warning('请输入合同名称')
   if (uploadAfterCreate.value && !selectedFile.value) return ElMessage.warning('请选择合同文件')
+  if (selectedFile.value) {
+    const validationError = validateContractFile(selectedFile.value)
+    if (validationError) return ElMessage.warning(validationError)
+  }
   submitting.value = true
   try {
     const contract = await createContract({
@@ -101,9 +106,15 @@ async function submitCreate() {
       currency: form.currency || null,
       description: form.description.trim() || null,
     })
-    if (selectedFile.value) await uploadContractVersion(contract.id, selectedFile.value, '初始上传')
+    const uploaded = selectedFile.value
+      ? await uploadContractVersion(contract.id, selectedFile.value, '初始上传')
+      : null
     dialogVisible.value = false
-    ElMessage.success(selectedFile.value ? '合同及原文件已创建' : '合同草稿已创建')
+    if (uploaded?.parse_status === 'failed') {
+      ElMessage.warning('合同已创建，但当前文件可能为扫描版或无可提取文本，请上传可复制文字的 PDF 或 Word 文件。')
+    } else {
+      ElMessage.success(selectedFile.value ? '合同已创建并完成条款解析' : '合同草稿已创建')
+    }
     await load()
   } catch (cause: any) {
     ElMessage.error(cause?.response?.data?.message || cause?.response?.data?.detail || '创建失败')
@@ -201,7 +212,7 @@ onBeforeUnmount(() => controller?.abort())
             <el-dropdown-item v-if="row.status !== 'deleted'" :icon="Delete" divided @click="confirmAction(row,'delete')">删除</el-dropdown-item>
           </el-dropdown-menu></template></el-dropdown>
         </template></el-table-column>
-        <template #empty><EmptyState compact title="暂无合同" description="当前筛选条件下没有可展示的合同。" /></template>
+        <template #empty><EmptyState compact title="当前还没有合同" description="上传第一份合同后，即可开始 AI 风险审查。"><el-button type="primary" :icon="Upload" @click="openCreate(true)">上传合同</el-button></EmptyState></template>
       </el-table>
       <el-pagination v-model:current-page="filters.page" v-model:page-size="filters.page_size" :total="total" :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next" @change="load" />
     </section>
@@ -211,7 +222,7 @@ onBeforeUnmount(() => controller?.abort())
         <div class="form-grid"><el-form-item label="合同名称" required><el-input v-model="form.title" maxlength="160" /></el-form-item><el-form-item label="合同类型"><el-select v-model="form.category"><el-option v-for="(label, value) in categories" :key="value" :label="label" :value="value" /></el-select></el-form-item></div>
         <div class="form-grid"><el-form-item label="相对方"><el-input v-model="form.counterparty" maxlength="160" /></el-form-item><el-form-item label="合同金额"><el-input v-model="form.amount" type="number"><template #prepend>{{ form.currency }}</template></el-input></el-form-item></div>
         <el-form-item label="说明"><el-input v-model="form.description" type="textarea" :rows="3" maxlength="1000" show-word-limit /></el-form-item>
-        <el-form-item v-if="uploadAfterCreate" label="合同文件" required><el-upload drag :auto-upload="false" :limit="1" :on-change="(item:any) => selectedFile = item.raw" :on-remove="() => selectedFile = null" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp"><el-icon class="upload-icon"><Upload /></el-icon><div>拖拽文件到此处，或点击选择</div><template #tip>支持 PDF、Word、扫描图片，最大 50MB</template></el-upload></el-form-item>
+        <el-form-item v-if="uploadAfterCreate" label="合同文件" required><el-upload drag :auto-upload="false" :limit="1" :on-change="(item:any) => selectedFile = item.raw" :on-remove="() => selectedFile = null" accept=".pdf,.doc,.docx,.txt"><el-icon class="upload-icon"><Upload /></el-icon><div>拖拽文件到此处，或点击选择</div><template #tip>支持 DOCX、文本型 PDF、TXT，最大 50MB</template></el-upload></el-form-item>
       </el-form>
       <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="submitting" @click="submitCreate">{{ uploadAfterCreate ? '创建并上传' : '创建草稿' }}</el-button></template>
     </el-dialog>

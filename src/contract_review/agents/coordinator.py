@@ -27,7 +27,7 @@ async def coordinator_node(state: ContractReviewState) -> dict:
     risk_summary = state.get("risk_summary", {})
     extracted_fields = state.get("extracted_fields", {})
     risk_score = calculate_risk_score(findings)
-    knowledge_hits = KnowledgeService().retrieve(findings)
+    knowledge_hits = state.get("knowledge_hits") or KnowledgeService().retrieve(findings)
     overall_level = risk_summary.get("总体风险等级", "低风险")
     if risk_score.get("风险等级"):
         overall_level = risk_score["风险等级"]

@@ -18,7 +18,9 @@ from contract_review.agents.validator import validator_node
 from contract_review.core.config import Settings
 from contract_review.schemas.review import ReviewResponse
 from contract_review.services.document_loader import DocumentLoader
+from contract_review.services.contract_clause_service import ContractClauseService
 from contract_review.services.history_service import HistoryService, build_history_item
+from contract_review.services.legal_knowledge_service import LegalKnowledgeService
 from contract_review.services.model_config_service import ModelConfigService
 from contract_review.services.prompt_template_service import PromptTemplateService
 from contract_review.services.report_service import ReportService
@@ -51,6 +53,21 @@ class ReviewService:
         if stage_callback:
             stage_callback("PARSING")
         raw_text = await asyncio.to_thread(self.document_loader.load_text, file_path)
+        clause_service = ContractClauseService(self.settings.contract_data_dir)
+        if contract_id and contract_version_id:
+            contract_clauses = clause_service.list_for_contract(contract_id, contract_version_id)
+            if not contract_clauses:
+                contract_clauses = clause_service.split_and_save(
+                    contract_id=contract_id,
+                    contract_version_id=contract_version_id,
+                    text=raw_text,
+                )
+        else:
+            contract_clauses = clause_service.split(
+                contract_id=contract_id or review_id,
+                contract_version_id=contract_version_id or review_id,
+                text=raw_text,
+            )
         prompt_templates = PromptTemplateService(self.settings.prompt_template_data_dir).resolve(
             contract_type
         )
@@ -62,6 +79,7 @@ class ReviewService:
             "raw_text": raw_text,
             "llm_config": llm_config or {},
             "contract_type": contract_type,
+            "contract_clauses": [item.model_dump(mode="json") for item in contract_clauses],
             "prompt_templates": prompt_templates,
             "errors": [],
             "stage_callback": stage_callback,
@@ -103,7 +121,7 @@ class ReviewService:
             ).get_active()
             if stage_callback:
                 stage_callback("PERSISTING_RISKS")
-            await asyncio.to_thread(
+            persisted_risks = await asyncio.to_thread(
                 RiskService(self.settings).persist_review_findings,
                 review_id=review_id,
                 findings=located_findings,
@@ -111,6 +129,26 @@ class ReviewService:
                 contract_version_id=contract_version_id,
                 created_by=actor_id,
             )
+            legal_knowledge = LegalKnowledgeService(self.settings)
+            findings_by_source_id = {
+                str(item.get("风险编号") or item.get("risk_id")): item
+                for item in located_findings
+            }
+            for persisted in persisted_risks:
+                source = findings_by_source_id.get(persisted.source_risk_id, {})
+                article_ids = [
+                    str(item.get("legalArticleId"))
+                    for item in source.get("legalBasis", source.get("legal_basis", []))
+                    if isinstance(item, dict) and item.get("legalArticleId")
+                ]
+                if article_ids:
+                    await asyncio.to_thread(
+                        legal_knowledge.save_review_issue_links,
+                        review_id=review_id,
+                        issue_id=persisted.risk_id,
+                        legal_article_ids=article_ids,
+                        actor_id=actor_id,
+                    )
             await asyncio.to_thread(
                 self.history_service.append,
                 build_history_item(

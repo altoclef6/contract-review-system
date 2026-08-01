@@ -17,7 +17,7 @@ const error = ref('')
 let controller: AbortController | null = null
 const filters = reactive<RiskQuery>({ page: 1, page_size: 10, keyword: '', severity: '', category: '', status: '', assignee_id: '', contract_type: '', date_from: '', date_to: '' })
 const statusMap: Record<RiskStatus, { label: string; tone: 'neutral' | 'info' | 'success' | 'warning' | 'danger' }> = {
-  pending_review: { label: '待复核', tone: 'warning' }, confirmed: { label: '已确认', tone: 'danger' }, rejected: { label: '已驳回', tone: 'neutral' },
+  pending_review: { label: 'AI 发现·待确认', tone: 'warning' }, confirmed: { label: '已确认', tone: 'danger' }, rejected: { label: '已驳回', tone: 'neutral' }, ignored: { label: '已忽略', tone: 'neutral' }, false_positive: { label: '误报', tone: 'neutral' }, modified: { label: '已修改', tone: 'info' },
   remediating: { label: '整改中', tone: 'info' }, remediated: { label: '已整改', tone: 'success' }, closed: { label: '已关闭', tone: 'neutral' },
 }
 const contractTypes: Record<string, string> = { software_development: '软件开发合同', technical_service: '技术服务合同', information_system: '信息系统建设合同', software_outsourcing: '软件外包合同', general: '通用合同', other: '其他' }
@@ -44,7 +44,7 @@ onBeforeUnmount(() => controller?.abort())
     </PageHeader>
     <section class="panel filters">
       <el-input v-model="filters.keyword" clearable placeholder="搜索风险、合同或原文" :prefix-icon="Search" @keyup.enter="search" />
-      <el-select v-model="filters.severity" clearable placeholder="风险等级"><el-option label="高风险" value="高"/><el-option label="中风险" value="中"/><el-option label="低风险" value="低"/></el-select>
+      <el-select v-model="filters.severity" clearable placeholder="风险等级"><el-option label="高风险" value="HIGH"/><el-option label="中风险" value="MEDIUM"/><el-option label="低风险" value="LOW"/></el-select>
       <el-select v-model="filters.status" clearable placeholder="状态"><el-option v-for="(item,key) in statusMap" :key="key" :label="item.label" :value="key"/></el-select>
       <el-input v-model="filters.category" clearable placeholder="风险类别" />
       <el-select v-model="filters.contract_type" clearable placeholder="合同类型"><el-option v-for="(label,key) in contractTypes" :key="key" :label="label" :value="key"/></el-select>
@@ -66,7 +66,7 @@ onBeforeUnmount(() => controller?.abort())
         <el-table-column label="更新时间" min-width="165"><template #default="{row}">{{ formatDate(row.updated_at) }}</template></el-table-column>
         <el-table-column label="操作" width="110" fixed="right"><template #default="{row}"><el-button link type="primary" @click.stop="router.push(`/risks/${row.risk_id}`)">查看详情</el-button></template></el-table-column>
       </el-table>
-      <EmptyState v-if="!loading && !items.length" compact title="暂无风险记录" description="完成合同审查后，持久化风险会显示在这里。" />
+      <EmptyState v-if="!loading && !items.length" compact title="暂无风险记录" description="完成合同审查后，持久化风险会显示在这里。"><el-button type="primary" @click="router.push('/review')">开始智能审查</el-button></EmptyState>
       <el-pagination v-if="total" v-model:current-page="filters.page" v-model:page-size="filters.page_size" layout="total, sizes, prev, pager, next" :total="total" @change="load" />
     </section>
   </div>

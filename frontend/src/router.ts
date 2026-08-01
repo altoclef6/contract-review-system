@@ -20,19 +20,24 @@ const router = createRouter({
         { path: 'reports', component: () => import('./views/ReportCenterView.vue'), meta: { title: '报告中心', section: '业务中心' } },
         { path: 'rules', component: () => import('./views/RuleCenterView.vue'), meta: { title: '规则中心', section: '协同与配置', roles: ['admin', 'legal'] } },
         { path: 'knowledge', component: () => import('./views/KnowledgeCenterView.vue'), meta: { title: '知识库', section: '协同与配置', roles: ['admin', 'legal'] } },
+        { path: 'legal-knowledge', component: () => import('./views/LegalKnowledgeView.vue'), meta: { title: '法律知识库', section: '协同与配置', roles: ['admin'] } },
         { path: 'users', component: () => import('./views/UsersView.vue'), meta: { title: '用户与权限', section: '协同与配置', roles: ['admin'] } },
         { path: 'version-compare', component: () => import('./views/VersionCompareView.vue'), meta: { title: '版本对比', section: '合同中心' } },
-        { path: 'assistant', component: () => import('./views/AssistantView.vue'), meta: { title: 'AI 法务助手', section: '协同工具' } },
+        { path: 'assistant', redirect: '/dashboard' },
         { path: 'workflows', component: () => import('./views/WorkflowsView.vue'), meta: { title: '审批流程', section: '协同工具' } },
-        { path: 'settings', component: () => import('./views/SettingsView.vue'), meta: { title: '系统设置', section: '系统管理', roles: ['admin', 'legal'] } },
+        { path: 'legal-search', component: () => import('./views/LegalSearchView.vue'), meta: { title: '法律检索', section: '协同工具' } },
+        { path: 'settings', component: () => import('./views/SettingsView.vue'), meta: { title: '系统设置', section: '系统管理', roles: ['admin'] } },
+        { path: 'audit-logs', component: () => import('./views/AuditLogsView.vue'), meta: { title: '操作日志', section: '系统管理', roles: ['admin'] } },
+        { path: '403', component: () => import('./views/AccessDeniedView.vue'), meta: { title: '无权访问', section: '系统提示' } },
       ],
     },
+    { path: '/:pathMatch(.*)*', component: () => import('./views/NotFoundView.vue'), meta: { title: '页面不存在' } },
   ],
 })
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.auth && !auth.loggedIn) return '/login'
   const roles = to.meta.roles as string[] | undefined
-  if (roles && auth.user && !roles.includes(auth.user.role)) return '/dashboard'
+  if (roles && auth.user && !roles.includes(auth.user.role)) return { path: '/403', query: { from: to.fullPath } }
 })
 export default router

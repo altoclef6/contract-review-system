@@ -19,11 +19,13 @@ api.interceptors.response.use(
         try {
           const response = await axios.post('/api/v1/auth/refresh', { refresh_token: refreshToken })
           localStorage.setItem('access_token', response.data.data.access_token)
+          localStorage.setItem('refresh_token', response.data.data.refresh_token)
           return api(original)
         } catch {
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
           localStorage.removeItem('user')
+          if (window.location.pathname !== '/login') window.location.assign('/login?expired=1')
         }
       }
     }

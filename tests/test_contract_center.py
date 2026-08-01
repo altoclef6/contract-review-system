@@ -159,3 +159,44 @@ def test_version_upload_download_idor_archive_restore_and_risk_filter(
         assert client.get(
             f"/api/v1/contracts/{contract_id}/overview", headers=attacker_headers
         ).status_code == 404
+
+
+def test_txt_upload_splits_clauses_and_rejects_duplicate(tmp_path: Path, monkeypatch) -> None:
+    _configure(monkeypatch, tmp_path)
+    content = (
+        "软件开发服务合同\n\n"
+        "第一条 项目范围\n乙方负责开发合同审查系统。\n\n"
+        "第二条 付款条件\n甲方在验收后十日内付款。\n\n"
+        "第三条 验收标准\n双方依据附件功能清单完成验收。"
+    ).encode("utf-8")
+    with TestClient(create_app()) as client:
+        owner_headers = _register(client, "clause-owner@example.com")
+        attacker_headers = _register(client, "clause-attacker@example.com")
+        contract = client.post(
+            "/api/v1/contracts",
+            headers=owner_headers,
+            json={"title": "Clause contract", "category": "software_development", "tags": []},
+        ).json()["data"]
+        url = f"/api/v1/contracts/{contract['id']}/versions/upload"
+        uploaded = client.post(
+            url,
+            headers=owner_headers,
+            files={"contract_file": ("software.txt", content, "text/plain")},
+        )
+        assert uploaded.status_code == 201, uploaded.text
+        version = uploaded.json()["data"]
+        assert version["parse_status"] == "ready"
+        clauses_url = f"/api/v1/contracts/{contract['id']}/clauses?version_id={version['id']}"
+        clauses = client.get(clauses_url, headers=owner_headers)
+        assert clauses.status_code == 200
+        assert len(clauses.json()["data"]) >= 3
+        assert any(item["clause_type"] == "付款条件" for item in clauses.json()["data"])
+        assert client.get(clauses_url, headers=attacker_headers).status_code == 404
+
+        duplicate = client.post(
+            url,
+            headers=owner_headers,
+            files={"contract_file": ("software-copy.txt", content, "text/plain")},
+        )
+        assert duplicate.status_code == 409
+        assert "请勿重复提交" in duplicate.json()["message"]

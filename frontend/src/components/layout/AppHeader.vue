@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowDown, Bell, Expand, Fold, Link, Lock, SwitchButton } from '@element-plus/icons-vue'
+import { ArrowDown, Bell, Expand, Fold, Link, Lock, SwitchButton, User } from '@element-plus/icons-vue'
 
 type UserRole = 'admin' | 'legal' | 'employee'
 
@@ -17,6 +17,7 @@ const emit = defineEmits<{
   toggle: []
   logout: []
   changePassword: []
+  profile: []
 }>()
 
 const roleNames: Record<UserRole, string> = {
@@ -26,6 +27,7 @@ const roleNames: Record<UserRole, string> = {
 }
 
 function handleCommand(command: string) {
+  if (command === 'profile') emit('profile')
   if (command === 'password') emit('changePassword')
   if (command === 'logout') emit('logout')
 }
@@ -69,6 +71,7 @@ function handleCommand(command: string) {
         </button>
         <template #dropdown>
           <el-dropdown-menu>
+            <el-dropdown-item command="profile" :icon="User">个人中心</el-dropdown-item>
             <el-dropdown-item command="password" :icon="Lock">修改密码</el-dropdown-item>
             <el-dropdown-item divided command="logout" :icon="SwitchButton">退出登录</el-dropdown-item>
           </el-dropdown-menu>

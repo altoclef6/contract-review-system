@@ -93,6 +93,19 @@
 .common-state h2 { margin: 0; font-size: var(--font-size-title); }
 .common-state p { max-width: 520px; margin: 8px 0 16px; color: var(--text-secondary); }
 .common-error-state .common-state__icon { color: var(--risk-high); background: var(--danger-soft); }
+
+.route-error-page {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: calc(100vh - 190px);
+  padding: 48px 24px;
+  text-align: center;
+}
+.route-error-page > span { display: grid; place-items: center; width: 76px; height: 76px; border-radius: 26px; color: #456d98; background: #eaf2f8; font-size: 34px; }
+.route-error-page > small { margin-top: 18px; color: #7792ad; font-size: 13px; font-weight: 800; letter-spacing: .16em; }
+.route-error-page h1 { margin: 8px 0; font-size: 26px; }
+.route-error-page p { max-width: 520px; margin: 0 0 24px; color: var(--text-secondary); line-height: 1.8; }
 .common-loading-indicator { width: 34px; height: 34px; margin-bottom: 18px; border: 3px solid #dbeafe; border-top-color: var(--primary); border-radius: 50%; animation: common-spin 0.8s linear infinite; }
 @keyframes common-spin { to { transform: rotate(360deg); } }
 

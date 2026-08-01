@@ -11,7 +11,7 @@ import RiskLevelTag from '../components/RiskLevelTag.vue'
 import StatusTag from '../components/StatusTag.vue'
 import { startContractReview } from '../services/contracts'
 import { useAuthStore } from '../stores/auth'
-import { addRiskComment, saveRiskRevision, transitionRisk, type RiskRecord } from '../services/risks'
+import { addRiskComment, saveRiskRevision, transitionRisk, updateRiskHumanReview, type RiskRecord } from '../services/risks'
 import {
   downloadReaderReport,
   fetchReaderWorkspace,
@@ -43,7 +43,7 @@ const categoryLabels: Record<string, string> = {
 }
 const sourceTypeLabels: Record<string, string> = { law: '法律', regulation: '行政法规', judicial_interpretation: '司法解释', enterprise_policy: '企业制度', contract_template: '合同模板', review_guideline: '审查指南' }
 const statusLabels: Record<string, string> = { effective: '现行有效', amended: '已修订', expired: '已失效', repealed: '已废止' }
-const riskStatusLabels: Record<string, string> = { pending_review: '待复核', confirmed: '已确认', rejected: '已驳回', remediating: '整改中', remediated: '已整改', closed: '已关闭' }
+const riskStatusLabels: Record<string, string> = { pending_review: 'AI 发现·待确认', confirmed: '已确认', rejected: '已驳回', ignored: '已忽略', false_positive: '误报', modified: '已修改', remediating: '整改中', remediated: '已整改', closed: '已关闭' }
 
 const risks = computed(() => workspace.value?.risks || [])
 const filteredRisks = computed(() => risks.value.filter((risk) => {
@@ -57,7 +57,11 @@ const isReviewer = computed(() => ['admin', 'legal'].includes(auth.user?.role ||
 const reviewActions = computed(() => {
   if (!selectedRisk.value?.persisted) return []
   const status = selectedRisk.value?.status
-  if (status === 'pending_review' && isReviewer.value) return [{ key: 'confirm', label: '确认' }, { key: 'reject', label: '驳回' }]
+  if (status === 'pending_review' && isReviewer.value) return [
+    { key: 'confirm', label: '确认' },
+    { key: 'ignore', label: '忽略' },
+    { key: 'false-positive', label: '标记误报' },
+  ]
   if (status === 'confirmed') return [{ key: 'start-remediation', label: '开始整改' }]
   if (status === 'remediating') return [{ key: 'mark-remediated', label: '标记已整改' }]
   return []
@@ -164,6 +168,7 @@ function replaceSelected(updated: RiskRecord) {
   if (index < 0) return
   workspace.value.risks[index] = {
     ...workspace.value.risks[index], status: updated.status, revision: updated.revision,
+    severity: updated.severity,
     assignee_id: updated.assignee_id, reviewer_id: updated.reviewer_id,
     review_comment: updated.review_comment, revised_clause: updated.revised_clause,
   }
@@ -190,6 +195,23 @@ async function saveManualRevision() {
     replaceSelected(await saveRiskRevision(asRiskRecord(selectedRisk.value), prompt.value))
     ElMessage.success('人工修改条款已保存')
   } catch (cause: any) { if (cause !== 'cancel' && cause !== 'close') ElMessage.error(cause?.response?.data?.detail || '保存失败') }
+  finally { riskSaving.value = false }
+}
+
+async function editHumanReview() {
+  if (!selectedRisk.value) return
+  try {
+    const levelPrompt = await ElMessageBox.prompt(
+      '输入统一风险等级：HIGH、MEDIUM 或 LOW',
+      '修改风险等级',
+      { inputValue: String(selectedRisk.value.severity || '').toUpperCase(), inputPattern: /^(HIGH|MEDIUM|LOW)$/, inputErrorMessage: '请输入 HIGH、MEDIUM 或 LOW' },
+    )
+    const opinionPrompt = await ElMessageBox.prompt('输入人工审查意见', '修改审查意见', { inputType: 'textarea', inputValue: selectedRisk.value.review_comment || selectedRisk.value.explanation || '' })
+    if (!opinionPrompt.value.trim()) return
+    riskSaving.value = true
+    replaceSelected(await updateRiskHumanReview(asRiskRecord(selectedRisk.value), levelPrompt.value as 'HIGH' | 'MEDIUM' | 'LOW', opinionPrompt.value))
+    ElMessage.success('人工风险等级和审查意见已保存')
+  } catch (cause: any) { if (cause !== 'cancel' && cause !== 'close') ElMessage.error(cause?.response?.data?.detail || '保存人工审查结论失败') }
   finally { riskSaving.value = false }
 }
 
@@ -273,7 +295,7 @@ onBeforeUnmount(() => { controller?.abort(); locationController?.abort() })
             <section class="metadata"><h3>检测信息</h3><dl><div><dt>规则来源</dt><dd>{{ selectedRisk.source }}</dd></div><div><dt>规则编号</dt><dd>{{ selectedRisk.rule_id || '暂无' }}</dd></div><div><dt>检测方式</dt><dd>{{ selectedRisk.detection_method }}</dd></div><div><dt>AI参与</dt><dd>{{ selectedRisk.ai_involved ? '是' : '否' }}</dd></div><div v-if="selectedRisk.confidence !== null && selectedRisk.confidence !== undefined"><dt>置信度</dt><dd>{{ `${Math.round(selectedRisk.confidence*100)}%` }}</dd></div><div><dt>原文位置</dt><dd>{{ locationText(selectedRisk) }}</dd></div></dl></section>
             <section><h3>知识依据</h3><div v-if="selectedRisk.knowledge_basis.length" class="basis-list"><article v-for="basis in selectedRisk.knowledge_basis" :key="basis.document_id"><strong>{{ basis.name }}</strong><dl><div><dt>条号</dt><dd>{{ basis.article_number || '未标注' }}</dd></div><div><dt>来源类型</dt><dd>{{ sourceTypeLabels[basis.source_type] || basis.source_type }}</dd></div><div><dt>效力状态</dt><dd>{{ statusLabels[basis.status] || basis.status }}</dd></div><div><dt>更新时间</dt><dd>{{ basis.updated_at ? formatDate(basis.updated_at) : '暂无维护时间' }}</dd></div></dl></article></div><p v-else class="muted">暂无已验证知识依据</p></section>
             <section><div class="section-heading"><h3>修改建议</h3><el-button link :icon="CopyDocument" @click="copySuggestion">复制建议</el-button></div><p>{{ selectedRisk.recommendation || '暂无修改建议' }}</p><blockquote v-if="selectedRisk.suggested_revision" class="revision">{{ selectedRisk.suggested_revision }}</blockquote></section>
-            <section class="review-actions"><div class="section-heading"><h3>人工复核</h3><StatusTag :label="riskStatusLabels[selectedRisk.status] || selectedRisk.status || '待复核'" tone="info" /></div><p v-if="selectedRisk.revised_clause"><strong>人工修改：</strong>{{ selectedRisk.revised_clause }}</p><p v-if="!selectedRisk.persisted" class="muted">该记录来自升级前的历史报告，尚无持久化风险记录；请重新审查后进行复核。</p><div v-else><el-button v-for="action in reviewActions" :key="action.key" type="primary" :loading="riskSaving" @click="runRiskAction(action.key, action.label)">{{ action.label }}</el-button><el-button :loading="riskSaving" @click="saveManualRevision">保存人工修改</el-button><el-button :loading="riskSaving" @click="addComment">添加评论</el-button><el-button link type="primary" @click="router.push(`/risks/${selectedRisk.risk_id}`)">完整风险详情</el-button></div></section>
+            <section class="review-actions"><div class="section-heading"><h3>人工复核</h3><StatusTag :label="riskStatusLabels[selectedRisk.status] || selectedRisk.status || '待复核'" tone="info" /></div><p v-if="selectedRisk.review_comment"><strong>审查意见：</strong>{{ selectedRisk.review_comment }}</p><p v-if="selectedRisk.revised_clause"><strong>人工修改：</strong>{{ selectedRisk.revised_clause }}</p><p v-if="!selectedRisk.persisted" class="muted">该记录来自升级前的历史报告，尚无持久化风险记录；请重新审查后进行复核。</p><div v-else><el-button v-for="action in reviewActions" :key="action.key" type="primary" :loading="riskSaving" @click="runRiskAction(action.key, action.label)">{{ action.label }}</el-button><el-button :loading="riskSaving" @click="editHumanReview">修改等级/意见</el-button><el-button :loading="riskSaving" @click="saveManualRevision">保存人工修改</el-button><el-button :loading="riskSaving" @click="addComment">添加备注</el-button><el-button link type="primary" @click="router.push(`/risks/${selectedRisk.risk_id}`)">完整风险详情</el-button></div></section>
           </template>
           <EmptyState v-else title="暂无风险结果" description="当前审查没有风险项，或筛选条件下没有可展示内容。" />
         </aside>

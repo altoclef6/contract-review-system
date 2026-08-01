@@ -1,6 +1,6 @@
 import { api } from '../api'
 
-export type RiskStatus = 'pending_review' | 'confirmed' | 'rejected' | 'remediating' | 'remediated' | 'closed'
+export type RiskStatus = 'pending_review' | 'confirmed' | 'rejected' | 'ignored' | 'false_positive' | 'modified' | 'remediating' | 'remediated' | 'closed'
 
 export interface RiskComment { comment_id: string; author_id: string; content: string; created_at: string }
 export interface RiskStateEvent { event_id: string; actor_id: string; old_status?: RiskStatus | null; new_status: RiskStatus; reason?: string | null; created_at: string }
@@ -62,8 +62,17 @@ export async function fetchRisk(riskId: string, signal?: AbortSignal) {
   return response.data.data as RiskRecord
 }
 
-export async function transitionRisk(risk: RiskRecord, action: 'confirm' | 'reject' | 'start-remediation' | 'mark-remediated' | 'close', reason?: string) {
+export async function transitionRisk(risk: RiskRecord, action: 'confirm' | 'reject' | 'ignore' | 'false-positive' | 'start-remediation' | 'mark-remediated' | 'close', reason?: string) {
   const response = await api.post(`/risks/${risk.risk_id}/${action}`, { expected_revision: risk.revision, reason: reason || null })
+  return response.data.data as RiskRecord
+}
+
+export async function updateRiskHumanReview(risk: RiskRecord, riskLevel: 'HIGH' | 'MEDIUM' | 'LOW', reviewOpinion: string) {
+  const response = await api.put(`/risks/${risk.risk_id}/human-review`, {
+    expected_revision: risk.revision,
+    risk_level: riskLevel,
+    review_opinion: reviewOpinion,
+  })
   return response.data.data as RiskRecord
 }
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Download, Refresh } from '@element-plus/icons-vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -11,6 +12,7 @@ import { api } from '../api'
 const loading = ref(false)
 const error = ref('')
 const records = ref<any[]>([])
+const router = useRouter()
 
 async function load() {
   loading.value = true
@@ -55,7 +57,7 @@ onMounted(load)
           <el-button link @click="download(row, 'xlsx')">Excel</el-button>
           <el-button link @click="download(row, 'markdown')">Markdown</el-button>
         </template></el-table-column>
-        <template #empty><EmptyState compact title="暂无审查报告" description="完成一次合同审查后，系统会在这里展示真实生成的报告。" /></template>
+        <template #empty><EmptyState compact title="暂无审查报告" description="完成一次合同审查后，系统会在这里展示真实生成的报告。"><el-button type="primary" @click="router.push('/review')">开始智能审查</el-button></EmptyState></template>
       </el-table>
     </section>
   </div>

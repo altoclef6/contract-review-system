@@ -31,6 +31,7 @@ class ModelConfigCreate(BaseModel):
     model_name: str = Field(min_length=1, max_length=120)
     temperature: float = Field(default=0.1, ge=0, le=2)
     max_tokens: int = Field(default=4096, ge=256, le=128000)
+    timeout_seconds: int = Field(default=60, ge=5, le=600)
     description: str | None = Field(default=None, max_length=500)
 
 
@@ -41,6 +42,7 @@ class ModelConfigUpdate(BaseModel):
     model_name: str | None = Field(default=None, min_length=1, max_length=120)
     temperature: float | None = Field(default=None, ge=0, le=2)
     max_tokens: int | None = Field(default=None, ge=256, le=128000)
+    timeout_seconds: int | None = Field(default=None, ge=5, le=600)
     description: str | None = Field(default=None, max_length=500)
 
 
@@ -53,6 +55,7 @@ class ModelConfigPublic(BaseModel):
     model_name: str
     temperature: float
     max_tokens: int
+    timeout_seconds: int = 60
     description: str | None = None
     is_active: bool
     created_at: datetime
@@ -72,3 +75,4 @@ class ModelRuntimeConfig(BaseModel):
     model_name: str
     temperature: float
     max_tokens: int
+    timeout_seconds: int = 60

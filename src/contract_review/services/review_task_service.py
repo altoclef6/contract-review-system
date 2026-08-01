@@ -35,6 +35,18 @@ class ReviewTaskConflictError(ReviewTaskError):
 
 class ReviewTaskService:
     _lock = threading.Lock()
+    _stage_progress = {
+        ReviewTaskStatus.pending: 0,
+        ReviewTaskStatus.validating: 5,
+        ReviewTaskStatus.parsing: 15,
+        ReviewTaskStatus.extracting: 30,
+        ReviewTaskStatus.rule_review: 45,
+        ReviewTaskStatus.knowledge_retrieval: 60,
+        ReviewTaskStatus.llm_review: 72,
+        ReviewTaskStatus.validating_result: 82,
+        ReviewTaskStatus.persisting_risks: 90,
+        ReviewTaskStatus.generating_report: 95,
+    }
 
     def __init__(self, settings: Settings, graph: Any | None = None) -> None:
         self.settings = settings
@@ -267,6 +279,7 @@ class ReviewTaskService:
             task.update(
                 status=status.value,
                 current_stage=status.value,
+                progress=self._stage_progress.get(status, task.get("progress")),
                 started_at=task.get("started_at") or now,
                 heartbeat_at=now,
                 updated_at=now,

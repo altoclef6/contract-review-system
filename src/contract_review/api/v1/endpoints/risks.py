@@ -13,6 +13,7 @@ from contract_review.schemas.auth import UserPublic
 from contract_review.schemas.risk import (
     RiskAssignRequest,
     RiskCommentRequest,
+    RiskHumanReviewRequest,
     RiskListResponse,
     RiskRecord,
     RiskRevisionRequest,
@@ -146,6 +147,28 @@ async def reject_risk(
     return await _transition(risk_id, RiskStatus.rejected, payload, user, risks, audit)
 
 
+@router.post("/{risk_id}/ignore", response_model=ApiResponse[RiskRecord])
+async def ignore_risk(
+    risk_id: str,
+    payload: RiskTransitionRequest,
+    user: UserPublic = Depends(get_current_user),
+    risks: RiskService = Depends(get_risk_service),
+    audit: AuditService = Depends(get_audit_service),
+) -> ApiResponse[RiskRecord]:
+    return await _transition(risk_id, RiskStatus.ignored, payload, user, risks, audit)
+
+
+@router.post("/{risk_id}/false-positive", response_model=ApiResponse[RiskRecord])
+async def mark_false_positive(
+    risk_id: str,
+    payload: RiskTransitionRequest,
+    user: UserPublic = Depends(get_current_user),
+    risks: RiskService = Depends(get_risk_service),
+    audit: AuditService = Depends(get_audit_service),
+) -> ApiResponse[RiskRecord]:
+    return await _transition(risk_id, RiskStatus.false_positive, payload, user, risks, audit)
+
+
 @router.post("/{risk_id}/start-remediation", response_model=ApiResponse[RiskRecord])
 async def start_remediation(
     risk_id: str,
@@ -258,3 +281,31 @@ async def save_revised_clause(
         metadata={"content_length": len(payload.revised_clause)},
     )
     return api_success(record, "人工修改条款已保存")
+
+
+@router.put("/{risk_id}/human-review", response_model=ApiResponse[RiskRecord])
+async def update_human_review(
+    risk_id: str,
+    payload: RiskHumanReviewRequest,
+    user: UserPublic = Depends(get_current_user),
+    risks: RiskService = Depends(get_risk_service),
+    audit: AuditService = Depends(get_audit_service),
+) -> ApiResponse[RiskRecord]:
+    try:
+        record = risks.update_human_review(
+            risk_id,
+            risk_level=payload.risk_level,
+            review_opinion=payload.review_opinion,
+            actor_id=user.id,
+            actor_role=user.role.value,
+            expected_revision=payload.expected_revision,
+        )
+    except RiskServiceError as exc:
+        _raise(exc)
+    audit.log_operation(
+        actor_id=user.id,
+        action="risks.human_review.update",
+        target=risk_id,
+        metadata={"risk_level": payload.risk_level},
+    )
+    return api_success(record, "人工审查结论已保存")

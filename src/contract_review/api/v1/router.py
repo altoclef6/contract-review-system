@@ -9,6 +9,7 @@ from contract_review.api.v1.endpoints import (
     dashboard,
     health,
     knowledge_center,
+    legal_knowledge,
     llm,
     model_configs,
     monitoring,
@@ -40,6 +41,9 @@ api_router.include_router(review_tasks.router, prefix="/review-tasks", tags=["�
 api_router.include_router(risks.router, prefix="/risks", tags=["风险台账与人工复核"])
 api_router.include_router(rule_center.router, prefix="/rules", tags=["规则中心"])
 api_router.include_router(knowledge_center.router, prefix="/knowledge", tags=["知识库中心"])
+api_router.include_router(
+    legal_knowledge.router, prefix="/legal-knowledge", tags=["自建法律知识库"]
+)
 api_router.include_router(
     version_comparisons.router, prefix="/version-comparisons", tags=["合同版本对比"]
 )

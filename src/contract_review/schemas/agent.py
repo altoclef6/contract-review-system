@@ -39,7 +39,7 @@ class RuleCheckerOutput(BaseModel):
 
 
 class KnowledgeRetrieverOutput(BaseModel):
-    hits: list[dict[str, str]]
+    hits: list[dict[str, Any]]
     degraded: bool = False
     telemetry: NodeTelemetry
 

@@ -62,6 +62,20 @@ export interface ContractDetail {
   }>
 }
 
+export interface ContractClause {
+  id: string
+  contract_id: string
+  contract_version_id?: string | null
+  clause_no?: string | null
+  clause_title?: string | null
+  clause_type: string
+  clause_content: string
+  page_number?: number | null
+  start_position: number
+  end_position: number
+  created_at: string
+}
+
 export interface ContractListParams {
   page: number
   page_size: number
@@ -82,6 +96,24 @@ export async function fetchContracts(params: ContractListParams, signal?: AbortS
 export async function fetchContractOverview(contractId: string, signal?: AbortSignal) {
   const response = await api.get(`/contracts/${contractId}/overview`, { signal })
   return response.data.data as ContractDetail
+}
+
+export async function fetchContractClauses(contractId: string, versionId?: string, signal?: AbortSignal) {
+  const response = await api.get(`/contracts/${contractId}/clauses`, {
+    params: versionId ? { version_id: versionId } : undefined,
+    signal,
+  })
+  return response.data.data as ContractClause[]
+}
+
+export function validateContractFile(file: File, maxSizeMb = 50): string | null {
+  const extension = `.${file.name.split('.').pop()?.toLowerCase() || ''}`
+  if (!['.docx', '.pdf', '.txt', '.doc'].includes(extension)) {
+    return '验收流程支持 DOCX、文本型 PDF 和 TXT 文件。'
+  }
+  if (file.size <= 0) return '文件内容为空，请重新选择。'
+  if (file.size > maxSizeMb * 1024 * 1024) return `文件超过 ${maxSizeMb} MB 限制。`
+  return null
 }
 
 export async function createContract(payload: Record<string, unknown>) {

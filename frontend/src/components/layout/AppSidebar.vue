@@ -2,18 +2,13 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import {
-  ChatLineRound,
-  Collection,
   DataAnalysis,
   Document,
   Files,
-  List,
-  Operation,
   Reading,
   Setting,
   Tickets,
   User,
-  Warning,
 } from '@element-plus/icons-vue'
 
 type UserRole = 'admin' | 'legal' | 'employee'
@@ -36,20 +31,13 @@ const route = useRoute()
 
 const primaryItems: NavigationItem[] = [
   { label: '工作台', path: '/dashboard', icon: DataAnalysis },
-  { label: '合同中心', path: '/contracts', icon: Files },
+  { label: '合同管理', path: '/contracts', icon: Files },
   { label: '智能审查', path: '/review', icon: Document },
-  { label: '审查任务', path: '/review-tasks', icon: List },
-  { label: '风险台账', path: '/risks', icon: Warning },
   { label: '报告中心', path: '/reports', icon: Tickets },
-]
-
-const supportItems: NavigationItem[] = [
-  { label: 'AI 法务助手', path: '/assistant', icon: ChatLineRound },
-  { label: '审批流程', path: '/workflows', icon: Operation },
-  { label: '规则中心', path: '/rules', icon: Collection, roles: ['admin', 'legal'] },
-  { label: '知识库', path: '/knowledge', icon: Reading, roles: ['admin', 'legal'] },
-  { label: '用户与权限', path: '/users', icon: User, roles: ['admin'] },
-  { label: '系统设置', path: '/settings', icon: Setting, roles: ['admin', 'legal'] },
+  { label: '法律知识库', path: '/legal-knowledge', icon: Reading, roles: ['admin'] },
+  { label: '法律知识库', path: '/legal-search', icon: Reading, roles: ['legal', 'employee'] },
+  { label: '团队与权限', path: '/users', icon: User, roles: ['admin'] },
+  { label: '系统管理', path: '/settings', icon: Setting, roles: ['admin'] },
 ]
 
 function visible(items: NavigationItem[]) {
@@ -57,7 +45,6 @@ function visible(items: NavigationItem[]) {
 }
 
 const visiblePrimary = computed(() => visible(primaryItems))
-const visibleSupport = computed(() => visible(supportItems))
 
 function isActive(path?: string) {
   return Boolean(path && route.path.startsWith(path))
@@ -76,7 +63,7 @@ function isActive(path?: string) {
 
     <nav class="app-nav">
       <section>
-        <p v-if="!collapsed" class="app-nav__group">业务中心</p>
+        <p v-if="!collapsed" class="app-nav__group">核心业务</p>
         <template v-for="item in visiblePrimary" :key="item.label">
           <router-link
             v-if="item.path"
@@ -103,33 +90,6 @@ function isActive(path?: string) {
         </template>
       </section>
 
-      <section>
-        <p v-if="!collapsed" class="app-nav__group">协同与配置</p>
-        <template v-for="item in visibleSupport" :key="item.label">
-          <router-link
-            v-if="item.path"
-            :to="item.path"
-            class="app-nav__item"
-            :class="{ 'is-active': isActive(item.path) }"
-            :title="collapsed ? item.label : undefined"
-            @click="emit('navigate')"
-          >
-            <el-icon><component :is="item.icon" /></el-icon>
-            <span v-if="!collapsed">{{ item.label }}</span>
-          </router-link>
-          <button
-            v-else
-            class="app-nav__item is-planned"
-            type="button"
-            disabled
-            :title="collapsed ? `${item.label}（规划中）` : undefined"
-          >
-            <el-icon><component :is="item.icon" /></el-icon>
-            <span v-if="!collapsed">{{ item.label }}</span>
-            <small v-if="!collapsed">规划中</small>
-          </button>
-        </template>
-      </section>
     </nav>
 
     <div class="app-sidebar__footer" :title="collapsed ? 'AI 辅助审查，不构成正式法律意见' : undefined">
