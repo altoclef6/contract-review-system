@@ -105,6 +105,51 @@ class AuditService:
             reverse=True,
         )[:limit]
 
+    def list_events(self, *, limit: int = 200) -> list[dict[str, Any]]:
+        """Return recent login and operation events for the admin audit console."""
+        if get_settings().database_enabled:
+            with get_session_factory()() as session:
+                rows = session.scalars(
+                    select(AuditLogModel)
+                    .order_by(AuditLogModel.created_at.desc())
+                    .limit(limit)
+                ).all()
+                return [
+                    {
+                        "actor_id": row.actor_id,
+                        "action": row.action,
+                        "target": row.target,
+                        "metadata": row.details.get("metadata", {}),
+                        "ip_address": row.details.get("ip_address"),
+                        "success": row.details.get("success", True),
+                        "created_at": row.created_at.isoformat(),
+                    }
+                    for row in rows
+                ]
+
+        records: list[dict[str, Any]] = []
+        for path, event_type in (
+            (self.login_log_path, "auth.login"),
+            (self.operation_log_path, "operation"),
+        ):
+            if not path.exists():
+                continue
+            for line in path.read_text(encoding="utf-8").splitlines():
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if event_type == "auth.login":
+                    item["action"] = "auth.login"
+                    item["actor_id"] = item.get("user_id")
+                    item["target"] = item.get("email")
+                records.append(item)
+        return sorted(
+            records,
+            key=lambda item: str(item.get("created_at") or ""),
+            reverse=True,
+        )[:limit]
+
     def _append(self, path: Path, payload: dict[str, Any]) -> None:
         record = {"created_at": datetime.now(timezone.utc).isoformat(), **payload}
         if get_settings().database_enabled:

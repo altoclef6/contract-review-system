@@ -8,7 +8,14 @@ from pathlib import Path
 from PIL import Image
 
 from contract_review.core.config import Settings
-from contract_review.core.exceptions import UnsupportedDocumentTypeError
+from contract_review.core.exceptions import (
+    DocumentTextExtractionError,
+    UnsupportedDocumentTypeError,
+)
+
+NO_EXTRACTABLE_TEXT_MESSAGE = (
+    "当前文件可能为扫描版或无可提取文本，请上传可复制文字的 PDF 或 Word 文件。"
+)
 
 
 class DocumentLoader:
@@ -16,6 +23,7 @@ class DocumentLoader:
         ".pdf",
         ".doc",
         ".docx",
+        ".txt",
         ".png",
         ".jpg",
         ".jpeg",
@@ -31,14 +39,24 @@ class DocumentLoader:
         suffix = file_path.suffix.lower()
         if suffix not in self.supported_extensions:
             raise UnsupportedDocumentTypeError(f"Unsupported contract file type: {suffix}")
+        if not file_path.is_file():
+            raise UnsupportedDocumentTypeError(
+                f"Unsupported contract file type or missing upload: {suffix}"
+            )
 
         if suffix == ".pdf":
-            return self._load_pdf(file_path)
-        if suffix == ".docx":
-            return self._load_docx(file_path)
-        if suffix == ".doc":
-            return self._load_legacy_doc(file_path)
-        return self._load_image_with_ocr(file_path)
+            text = self._load_pdf(file_path)
+        elif suffix == ".docx":
+            text = self._load_docx(file_path)
+        elif suffix == ".doc":
+            text = self._load_legacy_doc(file_path)
+        elif suffix == ".txt":
+            text = self._load_txt(file_path)
+        else:
+            text = self._load_image_with_ocr(file_path)
+        if len(text.strip()) < 2:
+            raise DocumentTextExtractionError(NO_EXTRACTABLE_TEXT_MESSAGE)
+        return text.strip()
 
     def _load_pdf(self, file_path: Path) -> str:
         import fitz
@@ -66,6 +84,15 @@ class DocumentLoader:
                 if cells:
                     table_text.append(" | ".join(cells))
         return "\n".join([*paragraphs, *table_text])
+
+    def _load_txt(self, file_path: Path) -> str:
+        raw = file_path.read_bytes()
+        for encoding in ("utf-8-sig", "utf-16", "gb18030"):
+            try:
+                return raw.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+        raise DocumentTextExtractionError(NO_EXTRACTABLE_TEXT_MESSAGE)
 
     def _load_image_with_ocr(self, file_path: Path) -> str:
         with Image.open(file_path) as image:

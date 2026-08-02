@@ -20,7 +20,7 @@ foreach ($path in @($appPath, $backendPath, $pythonDll)) {
     if (-not (Test-Path $path)) { throw "Installed file is missing: $path" }
 }
 
-$app = Start-Process $appPath -PassThru
+$app = Start-Process $appPath -PassThru -WindowStyle Hidden
 try {
     $deadline = (Get-Date).AddSeconds(75)
     $backend = $null

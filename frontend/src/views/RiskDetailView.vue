@@ -17,13 +17,14 @@ const comment = ref(''); const revisedClause = ref(''); const assigneeId = ref('
 let controller: AbortController | null = null
 const isReviewer = computed(() => ['admin', 'legal'].includes(auth.user?.role || ''))
 const statusMap: Record<RiskStatus, { label: string; tone: 'neutral' | 'info' | 'success' | 'warning' | 'danger' }> = {
-  pending_review: { label: '待复核', tone: 'warning' }, confirmed: { label: '已确认', tone: 'danger' }, rejected: { label: '已驳回', tone: 'neutral' }, remediating: { label: '整改中', tone: 'info' }, remediated: { label: '已整改', tone: 'success' }, closed: { label: '已关闭', tone: 'neutral' },
+  pending_review: { label: 'AI 发现·待确认', tone: 'warning' }, confirmed: { label: '已确认', tone: 'danger' }, rejected: { label: '已驳回', tone: 'neutral' }, ignored: { label: '已忽略', tone: 'neutral' }, false_positive: { label: '误报', tone: 'neutral' }, modified: { label: '已修改', tone: 'info' }, remediating: { label: '整改中', tone: 'info' }, remediated: { label: '已整改', tone: 'success' }, closed: { label: '已关闭', tone: 'neutral' },
 }
 const actions = computed(() => {
   if (!risk.value) return []
   if (risk.value.status === 'pending_review' && isReviewer.value) return [{ key: 'confirm', label: '确认风险', type: 'danger' }, { key: 'reject', label: '驳回风险', type: 'default' }]
   if (risk.value.status === 'confirmed') return [{ key: 'start-remediation', label: '开始整改', type: 'primary' }, ...(isReviewer.value ? [{ key: 'close', label: '关闭风险', type: 'default' }] : [])]
-  if (risk.value.status === 'rejected' && isReviewer.value) return [{ key: 'close', label: '关闭风险', type: 'default' }]
+  if (['rejected', 'ignored', 'false_positive'].includes(risk.value.status) && isReviewer.value) return [{ key: 'close', label: '关闭风险', type: 'default' }]
+  if (risk.value.status === 'modified') return [{ key: 'confirm', label: '确认修改', type: 'primary' }]
   if (risk.value.status === 'remediating') return [{ key: 'mark-remediated', label: '标记已整改', type: 'success' }]
   if (risk.value.status === 'remediated') return [{ key: 'start-remediation', label: '继续整改', type: 'primary' }, ...(isReviewer.value ? [{ key: 'close', label: '关闭风险', type: 'default' }] : [])]
   return []

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,9 @@ class RiskStatus(StrEnum):
     pending_review = "pending_review"
     confirmed = "confirmed"
     rejected = "rejected"
+    ignored = "ignored"
+    false_positive = "false_positive"
+    modified = "modified"
     remediating = "remediating"
     remediated = "remediated"
     closed = "closed"
@@ -120,6 +123,12 @@ class RiskCommentRequest(BaseModel):
 
 class RiskRevisionRequest(BaseModel):
     revised_clause: str = Field(min_length=1, max_length=10000)
+    expected_revision: int = Field(ge=1)
+
+
+class RiskHumanReviewRequest(BaseModel):
+    risk_level: Literal["HIGH", "MEDIUM", "LOW"]
+    review_opinion: str = Field(min_length=1, max_length=2000)
     expected_revision: int = Field(ge=1)
 
 

@@ -211,7 +211,7 @@ onMounted(loadAll)
             <el-table-column prop="updated_at" label="更新时间" width="180" />
             <el-table-column label="操作" width="230" fixed="right"><template #default="s"><el-button text type="primary" @click="editDocument(s.row)">编辑/新版本</el-button><el-button text @click="activeTab='articles'; articleFilters.law_name=s.row.name; loadAll()">查看条文</el-button><el-button text :type="s.row.is_enabled ? 'danger' : 'success'" @click="toggleDocument(s.row)">{{ s.row.is_enabled ? '停用' : '启用' }}</el-button></template></el-table-column>
           </el-table>
-          <EmptyState v-if="!documents.length" title="暂无法律文件" description="可先导入待核验演示结构，或新增来自官方来源的法律文件。" />
+          <EmptyState v-if="!documents.length" title="暂无法律文件" description="可先导入待核验演示结构，或新增来自官方来源的法律文件。"><el-button type="primary" @click="createDocument">新增法律文件</el-button></EmptyState>
         </el-tab-pane>
 
         <el-tab-pane label="法律条文" name="articles">
@@ -225,7 +225,7 @@ onMounted(loadAll)
             <el-table-column label="状态" width="110"><template #default="s"><el-tag :type="s.row.is_effective && s.row.verification_status === 'verified' ? 'success' : 'warning'">{{ s.row.is_effective ? verificationLabels[s.row.verification_status] : '停用/待核验' }}</el-tag></template></el-table-column>
             <el-table-column label="操作" width="150" fixed="right"><template #default="s"><el-button text type="primary" @click.stop="editArticle(s.row)">编辑</el-button><el-button text type="danger" :disabled="!s.row.is_effective" @click.stop="deactivateArticle(s.row)">停用</el-button></template></el-table-column>
           </el-table>
-          <EmptyState v-if="!articles.length" title="暂无匹配条文" description="待核验条文不会提供给员工搜索，也不会进入 AI 审查。" />
+          <EmptyState v-if="!articles.length" title="暂无匹配条文" description="待核验条文不会提供给员工搜索，也不会进入 AI 审查。"><el-button type="primary" @click="createArticle">新增法律条文</el-button></EmptyState>
         </el-tab-pane>
 
         <el-tab-pane label="风险规则" name="rules">
@@ -240,6 +240,7 @@ onMounted(loadAll)
             <el-table-column label="状态" width="85"><template #default="s"><el-tag :type="s.row.is_enabled ? 'success' : 'info'">{{ s.row.is_enabled ? '启用' : '停用' }}</el-tag></template></el-table-column>
             <el-table-column label="操作" width="150"><template #default="s"><el-button text type="primary" @click="editRule(s.row)">编辑</el-button><el-button text :type="s.row.is_enabled ? 'danger' : 'success'" @click="toggleRule(s.row)">{{ s.row.is_enabled ? '停用' : '启用' }}</el-button></template></el-table-column>
           </el-table>
+          <EmptyState v-if="!rules.length" title="暂无风险规则" description="创建首条规则后，可关联已核验法条并参与合同审查。"><el-button type="primary" @click="createRule">新增风险规则</el-button></EmptyState>
         </el-tab-pane>
 
         <el-tab-pane label="标准条款" name="clauses">
@@ -249,6 +250,7 @@ onMounted(loadAll)
 
         <el-tab-pane label="版本记录" name="versions">
           <el-table :data="versions"><el-table-column prop="legal_document_id" label="法律文件 ID" min-width="210" /><el-table-column prop="version_number" label="版本" width="110" /><el-table-column label="效力" width="100"><template #default="s">{{ effectLabels[s.row.effect_status] }}</template></el-table-column><el-table-column label="核验状态" width="110"><template #default="s">{{ verificationLabels[s.row.verification_status] }}</template></el-table-column><el-table-column prop="change_summary" label="变更说明" min-width="220" /><el-table-column prop="created_by" label="操作人" width="170" /><el-table-column prop="created_at" label="创建时间" width="190" /></el-table>
+          <EmptyState v-if="!versions.length" title="暂无版本记录" description="新增或更新法律文件后，版本记录会显示在这里。"><el-button type="primary" @click="activeTab='documents'">管理法律文件</el-button></EmptyState>
         </el-tab-pane>
       </el-tabs>
     </section>
@@ -273,5 +275,5 @@ onMounted(loadAll)
 </template>
 
 <style scoped>
-.legal-page{display:grid;gap:18px}.legal-hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;padding:28px;border-radius:18px;background:linear-gradient(135deg,#173e36,#285c50);color:white}.legal-hero span{font-size:12px;letter-spacing:.18em;opacity:.75}.legal-hero h1{margin:8px 0;font-size:28px}.legal-hero p{max-width:760px;margin:0;color:#d9ebe6;line-height:1.7}.legal-workspace{padding:20px}.toolbar{display:flex;gap:10px;align-items:center;margin:4px 0 18px}.toolbar .el-input,.toolbar .el-select{width:170px}.toolbar.end{justify-content:flex-end}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}.clause-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}.clause-grid article{padding:18px;border:1px solid #e4ebe8;border-radius:14px;background:#fbfdfc}.clause-grid span{color:#69827b;font-size:12px}.clause-grid h3{margin:8px 0}.clause-grid p,.article-content{white-space:pre-wrap;line-height:1.8;color:#334b45}.detail-tags{display:flex;gap:8px;margin-bottom:16px}@media(max-width:900px){.legal-hero{align-items:flex-start;flex-direction:column}.toolbar{flex-wrap:wrap}.form-grid{grid-template-columns:1fr}}
+.legal-page{display:grid;gap:18px}.legal-hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;padding:28px;border:1px solid #dce5ee;border-radius:18px;background:#f5f8fb;color:#23384d;box-shadow:0 10px 30px rgba(48,73,98,.08)}.legal-hero span{color:#58748f;font-size:12px;letter-spacing:.18em}.legal-hero h1{margin:8px 0;font-size:28px}.legal-hero p{max-width:760px;margin:0;color:#5f7285;line-height:1.7}.legal-workspace{padding:20px}.toolbar{display:flex;gap:10px;align-items:center;margin:4px 0 18px}.toolbar .el-input,.toolbar .el-select{width:170px}.toolbar.end{justify-content:flex-end}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}.clause-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}.clause-grid article{padding:18px;border:1px solid #e4ebe8;border-radius:14px;background:#fbfdfc}.clause-grid span{color:#69827b;font-size:12px}.clause-grid h3{margin:8px 0}.clause-grid p,.article-content{white-space:pre-wrap;line-height:1.8;color:#334b45}.detail-tags{display:flex;gap:8px;margin-bottom:16px}@media(max-width:900px){.legal-hero{align-items:flex-start;flex-direction:column}.toolbar{flex-wrap:wrap}.form-grid{grid-template-columns:1fr}}
 </style>

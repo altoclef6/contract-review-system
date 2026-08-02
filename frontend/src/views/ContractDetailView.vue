@@ -13,10 +13,13 @@ import {
   archiveContract,
   downloadContractVersion,
   downloadReviewReport,
+  fetchContractClauses,
   fetchContractOverview,
   restoreContract,
   startContractReview,
   uploadContractVersion,
+  validateContractFile,
+  type ContractClause,
   type ContractDetail,
   type ContractVersion,
 } from '../services/contracts'
@@ -31,6 +34,7 @@ const acting = ref(false)
 const uploadVisible = ref(false)
 const uploadFile = ref<File | null>(null)
 const changeNote = ref('')
+const clauses = ref<ContractClause[]>([])
 let controller: AbortController | null = null
 
 const categories: Record<string, string> = {
@@ -59,7 +63,13 @@ async function load() {
   controller = new AbortController()
   loading.value = true
   error.value = ''
-  try { detail.value = await fetchContractOverview(contractId.value, controller.signal) }
+  try {
+    detail.value = await fetchContractOverview(contractId.value, controller.signal)
+    const versionId = detail.value.contract.versions.at(-1)?.id
+    clauses.value = versionId
+      ? await fetchContractClauses(contractId.value, versionId, controller.signal)
+      : []
+  }
   catch (cause: any) {
     if (cause?.code !== 'ERR_CANCELED') error.value = cause?.response?.data?.message || cause?.response?.data?.detail || '合同详情加载失败'
   } finally { loading.value = false }
@@ -67,13 +77,19 @@ async function load() {
 
 async function submitUpload() {
   if (!uploadFile.value) return ElMessage.warning('请选择合同文件')
+  const validationError = validateContractFile(uploadFile.value)
+  if (validationError) return ElMessage.warning(validationError)
   acting.value = true
   try {
-    await uploadContractVersion(contractId.value, uploadFile.value, changeNote.value.trim() || undefined)
+    const uploaded = await uploadContractVersion(contractId.value, uploadFile.value, changeNote.value.trim() || undefined)
     uploadVisible.value = false
     uploadFile.value = null
     changeNote.value = ''
-    ElMessage.success('新版本已上传，历史版本保持不变')
+    if (uploaded.parse_status === 'failed') {
+      ElMessage.warning('当前文件可能为扫描版或无可提取文本，请上传可复制文字的 PDF 或 Word 文件。')
+    } else {
+      ElMessage.success('新版本已上传并完成条款解析，历史版本保持不变')
+    }
     await load()
   } catch (cause: any) { ElMessage.error(cause?.response?.data?.message || cause?.response?.data?.detail || '上传失败') }
   finally { acting.value = false }
@@ -158,6 +174,16 @@ onBeforeUnmount(() => controller?.abort())
             <el-descriptions-item label="说明" :span="2">{{ contract.description || '暂无数据' }}</el-descriptions-item>
           </el-descriptions>
         </el-tab-pane>
+        <el-tab-pane :label="`解析条款（${clauses.length}）`">
+          <el-table :data="clauses" row-key="id">
+            <el-table-column prop="clause_no" label="条款编号" width="120" />
+            <el-table-column prop="clause_title" label="条款标题" min-width="180" />
+            <el-table-column prop="clause_type" label="条款类型" width="120" />
+            <el-table-column prop="clause_content" label="条款原文" min-width="420" show-overflow-tooltip />
+            <el-table-column prop="page_number" label="页码" width="80" />
+            <template #empty><EmptyState compact title="暂无解析条款" description="上传 DOCX、文本型 PDF 或 TXT 后，系统会自动解析并切分条款。" /></template>
+          </el-table>
+        </el-tab-pane>
         <el-tab-pane :label="`版本历史（${contract.versions.length}）`">
           <el-table :data="[...contract.versions].reverse()" row-key="id">
             <el-table-column label="版本号" width="90"><template #default="{ row }">V{{ row.version_no }}</template></el-table-column>
@@ -187,7 +213,7 @@ onBeforeUnmount(() => controller?.abort())
 
     <el-dialog v-model="uploadVisible" title="上传合同新版本" width="560px" destroy-on-close>
       <el-alert title="新版本不会覆盖历史文件，本阶段不提供版本文本差异。" type="info" :closable="false" show-icon />
-      <el-form label-position="top" class="upload-form"><el-form-item label="合同文件" required><el-upload drag :auto-upload="false" :limit="1" :on-change="(item:any) => uploadFile = item.raw" :on-remove="() => uploadFile = null" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp"><el-icon class="upload-icon"><Upload /></el-icon><div>拖拽文件到此处，或点击选择</div><template #tip>支持 PDF、Word、扫描图片，最大 50MB</template></el-upload></el-form-item><el-form-item label="版本说明"><el-input v-model="changeNote" type="textarea" :rows="3" maxlength="1000" show-word-limit /></el-form-item></el-form>
+      <el-form label-position="top" class="upload-form"><el-form-item label="合同文件" required><el-upload drag :auto-upload="false" :limit="1" :on-change="(item:any) => uploadFile = item.raw" :on-remove="() => uploadFile = null" accept=".pdf,.doc,.docx,.txt"><el-icon class="upload-icon"><Upload /></el-icon><div>拖拽文件到此处，或点击选择</div><template #tip>支持 DOCX、文本型 PDF、TXT，最大 50MB</template></el-upload></el-form-item><el-form-item label="版本说明"><el-input v-model="changeNote" type="textarea" :rows="3" maxlength="1000" show-word-limit /></el-form-item></el-form>
       <template #footer><el-button @click="uploadVisible=false">取消</el-button><el-button type="primary" :loading="acting" @click="submitUpload">上传新版本</el-button></template>
     </el-dialog>
   </div>

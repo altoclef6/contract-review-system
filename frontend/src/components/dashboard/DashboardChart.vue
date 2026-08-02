@@ -59,3 +59,7 @@ onBeforeUnmount(() => {
   <EmptyState v-else-if="empty" compact :title="emptyTitle || '暂无图表数据'" :description="emptyDescription || '当前统计范围内没有可展示的数据。'" />
   <div v-show="!empty && !renderError" ref="container" class="dashboard-chart" role="img"></div>
 </template>
+
+<style scoped>
+.dashboard-chart { width: 100%; height: 260px; min-height: 260px; }
+</style>

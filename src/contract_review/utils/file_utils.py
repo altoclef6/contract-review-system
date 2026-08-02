@@ -17,12 +17,13 @@ from contract_review.core.exceptions import (
     UploadTooLargeError,
 )
 
-ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
+ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".txt", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 ALLOWED_MIME_TYPES = {
     ".pdf": {"application/pdf", "application/octet-stream"},
     ".doc": {"application/msword", "application/octet-stream"},
     ".docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip", "application/octet-stream"},
+    ".txt": {"text/plain", "application/octet-stream"},
     ".png": {"image/png", "application/octet-stream"},
     ".jpg": {"image/jpeg", "application/octet-stream"},
     ".jpeg": {"image/jpeg", "application/octet-stream"},
@@ -171,6 +172,20 @@ def validate_file_signature(
             validate_office_archive(path)
     elif resolved_suffix == ".doc":
         valid = header.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1")
+    elif resolved_suffix == ".txt":
+        try:
+            raw = path.read_bytes()
+            if b"\x00" in raw[:4096]:
+                valid = raw.startswith((b"\xff\xfe", b"\xfe\xff"))
+            else:
+                raw.decode("utf-8-sig")
+                valid = True
+        except UnicodeDecodeError:
+            try:
+                raw.decode("gb18030")
+                valid = True
+            except UnicodeDecodeError:
+                valid = False
     elif resolved_suffix in IMAGE_EXTENSIONS:
         try:
             with Image.open(path) as image:

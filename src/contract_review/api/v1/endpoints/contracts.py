@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from datetime import datetime
 from pathlib import Path
@@ -44,9 +45,12 @@ from contract_review.schemas.contract_management import (
     VersionCompareRequest,
     VersionComparison,
 )
+from contract_review.schemas.contract_clause import ContractClause
 from contract_review.schemas.review_task import ReviewTaskCreate, ReviewTaskRecord
 from contract_review.services.audit_service import AuditService
 from contract_review.services.contract_service import ContractService, ContractServiceError
+from contract_review.services.contract_clause_service import ContractClauseService
+from contract_review.services.document_loader import DocumentLoader
 from contract_review.services.history_service import HistoryService
 from contract_review.services.review_task_service import ReviewTaskService
 from contract_review.services.user_service import UserService
@@ -357,6 +361,7 @@ async def upload_contract_version(
     except ContractServiceError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="合同不可访问") from exc
     original_name = normalize_original_filename(contract_file.filename or "contract")
+    original_content_type = contract_file.content_type
     settings = request.app.state.settings
     contract_upload_dir = settings.upload_dir / "contracts" / contract_id
     saved_path = await save_upload_file(
@@ -368,21 +373,44 @@ async def upload_contract_version(
     )
     try:
         digest = hashlib.sha256(saved_path.read_bytes()).hexdigest()
+        duplicate = contracts.find_version_by_hash(contract_id, digest)
+        if duplicate is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"该文件已作为 V{duplicate.version_no} 上传，请勿重复提交。",
+            )
+        parse_error: str | None = None
+        try:
+            text_content = await asyncio.to_thread(DocumentLoader(settings).load_text, saved_path)
+        except Exception:
+            text_content = None
+            parse_error = (
+                "当前文件可能为扫描版或无可提取文本，请上传可复制文字的 PDF 或 Word 文件。"
+            )
         payload = ContractVersionCreate(
             file_name=original_name,
             change_note=change_note,
             file_hash=digest,
             version_type=version_type,
+            text_content=text_content,
         )
         version = contracts.add_version(
             contract_id=contract_id,
             payload=payload,
             actor_id=user.id,
             file_path=str(saved_path),
-            content_type=contract_file.content_type,
+            content_type=original_content_type,
             file_size=saved_path.stat().st_size,
-            parse_status="unavailable",
+            parse_status="ready" if text_content else "failed",
         )
+        clauses = []
+        if text_content:
+            clauses = await asyncio.to_thread(
+                ContractClauseService(settings.contract_data_dir).split_and_save,
+                contract_id=contract_id,
+                contract_version_id=version.id,
+                text=text_content,
+            )
     except Exception:
         saved_path.unlink(missing_ok=True)
         raise
@@ -390,9 +418,42 @@ async def upload_contract_version(
         actor_id=user.id,
         action="contracts.version.upload",
         target=contract_id,
-        metadata={"version_id": version.id, "file_size": version.file_size},
+        metadata={
+            "version_id": version.id,
+            "file_size": version.file_size,
+            "parse_status": version.parse_status,
+            "clause_count": len(clauses),
+            "parse_error": parse_error,
+        },
     )
-    return api_success(version, "合同新版本已上传")
+    return api_success(
+        version,
+        parse_error or f"合同已解析并切分为 {len(clauses)} 个条款",
+    )
+
+
+@router.get(
+    "/{contract_id}/clauses",
+    response_model=ApiResponse[list[ContractClause]],
+    summary="查看合同解析条款",
+)
+async def list_contract_clauses(
+    contract_id: str,
+    request: Request,
+    version_id: str | None = Query(default=None, max_length=120),
+    user: UserPublic = Depends(require_permission(Permission.contracts_read)),
+    contracts: ContractService = Depends(get_contract_service),
+) -> ApiResponse[list[ContractClause]]:
+    try:
+        contracts.require_access(contract_id, actor_id=user.id, actor_role=user.role.value)
+        if version_id:
+            contracts.get_version(contract_id, version_id)
+    except ContractServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="合同不可访问") from exc
+    clauses = ContractClauseService(request.app.state.settings.contract_data_dir).list_for_contract(
+        contract_id, version_id
+    )
+    return api_success(clauses)
 
 
 @router.get(

@@ -14,5 +14,9 @@ class UnsafeUploadError(ContractReviewError):
     """Raised when an upload extension and file signature are unsafe or inconsistent."""
 
 
+class DocumentTextExtractionError(ContractReviewError):
+    """Raised when a supported document has no usable text for review."""
+
+
 class LLMConfigurationError(ContractReviewError):
     """Raised when external LLM API configuration is incomplete."""

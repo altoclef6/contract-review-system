@@ -26,6 +26,7 @@ from contract_review.schemas.contract_management import (
 from contract_review.schemas.review import ReviewResponse
 from contract_review.services.contract_service import ContractService, ContractServiceError
 from contract_review.services.document_loader import DocumentLoader
+from contract_review.services.contract_clause_service import ContractClauseService
 from contract_review.services.history_service import HistoryService, build_history_item
 from contract_review.services.legal_knowledge_service import LegalKnowledgeService
 from contract_review.services.model_config_service import ModelConfigService
@@ -60,6 +61,21 @@ class ReviewService:
         if stage_callback:
             stage_callback("PARSING")
         raw_text = await asyncio.to_thread(self.document_loader.load_text, file_path)
+        clause_service = ContractClauseService(self.settings.contract_data_dir)
+        if contract_id and contract_version_id:
+            contract_clauses = clause_service.list_for_contract(contract_id, contract_version_id)
+            if not contract_clauses:
+                contract_clauses = clause_service.split_and_save(
+                    contract_id=contract_id,
+                    contract_version_id=contract_version_id,
+                    text=raw_text,
+                )
+        else:
+            contract_clauses = clause_service.split(
+                contract_id=contract_id or review_id,
+                contract_version_id=contract_version_id or review_id,
+                text=raw_text,
+            )
         prompt_templates = PromptTemplateService(self.settings.prompt_template_data_dir).resolve(
             "general" if contract_type == "auto" else contract_type
         )
@@ -71,6 +87,7 @@ class ReviewService:
             "raw_text": raw_text,
             "llm_config": llm_config or {},
             "contract_type": contract_type,
+            "contract_clauses": [item.model_dump(mode="json") for item in contract_clauses],
             "prompt_templates": prompt_templates,
             "errors": [],
         }

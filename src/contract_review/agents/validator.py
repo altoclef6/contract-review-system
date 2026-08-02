@@ -22,6 +22,8 @@ async def validator_node(state: ContractReviewState) -> dict:
         for item in state.get("knowledge_hits", [])
         if item.get("legalArticleId")
     }
+    clauses = [item for item in state.get("contract_clauses", []) if item.get("id")]
+    allowed_clause_ids = {str(item["id"]) for item in clauses}
     for raw in state.get("compliance_findings", []):
         item = dict(raw)
         key = (str(item.get("rule_id") or item.get("风险标题")), str(item.get("相关条款", "")))
@@ -42,6 +44,7 @@ async def validator_node(state: ContractReviewState) -> dict:
         )
         item["legalBasis"] = basis
         item["legal_basis"] = basis
+        item["legalArticleIds"] = [entry["legalArticleId"] for entry in basis]
         item["knowledge_document_ids"] = [entry["legalArticleId"] for entry in basis]
         item["审查依据"] = (
             "；".join(f"《{entry['lawName']}》{entry['articleNo']}" for entry in basis)
@@ -49,12 +52,30 @@ async def validator_node(state: ContractReviewState) -> dict:
             else "未匹配到已核验法律依据"
         )
         item["hasRisk"] = bool(item.get("hasRisk", True))
-        item["riskLevel"] = item.get("riskLevel") or {
-            "低": "low",
-            "中": "medium",
-            "高": "high",
-            "严重": "critical",
-        }.get(str(item.get("风险等级")), "medium")
+        raw_level = str(item.get("riskLevel") or "").upper()
+        item["riskLevel"] = raw_level if raw_level in {"HIGH", "MEDIUM", "LOW"} else {
+            "低": "LOW",
+            "中": "MEDIUM",
+            "高": "HIGH",
+            "严重": "HIGH",
+        }.get(str(item.get("风险等级")), "MEDIUM")
+        clause_id = str(item.get("clauseId") or "")
+        if clause_id not in allowed_clause_ids:
+            clause_text = str(item.get("originalClause") or item.get("相关条款") or "")
+            matched = next(
+                (
+                    clause
+                    for clause in clauses
+                    if clause_text
+                    and (
+                        clause_text in str(clause.get("clause_content") or "")
+                        or str(clause.get("clause_content") or "") in clause_text
+                    )
+                ),
+                clauses[0] if clauses else None,
+            )
+            clause_id = str(matched.get("id")) if matched else ""
+        item["clauseId"] = clause_id
         item["riskName"] = item.get("riskName") or item.get("风险标题") or "合同风险"
         item["originalClause"] = item.get("originalClause") or item.get("相关条款") or ""
         item["riskDescription"] = item.get("riskDescription") or item.get("问题说明") or ""
@@ -63,6 +84,7 @@ async def validator_node(state: ContractReviewState) -> dict:
         item["recommendedClause"] = item.get("recommendedClause") or item.get("推荐条款") or ""
         if not isinstance(item.get("confidence"), (int, float)):
             item["confidence"] = 1.0 if item.get("来源") != "AI增强审查" else 0.6
+        item["confidence"] = max(0.0, min(1.0, float(item["confidence"])))
         validated.append(item)
     telemetry = NodeTelemetry(
         node_name="validator",

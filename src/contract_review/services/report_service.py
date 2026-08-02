@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ class ReportService:
 
     def save_all_reports(self, review_id: str, report: dict[str, Any]) -> dict[str, Path]:
         self.report_dir.mkdir(parents=True, exist_ok=True)
+        report = self._snapshot_report(review_id, report)
         return {
             "json": self.save_json_report(review_id, report),
             "docx": self.save_docx_report(review_id, report),
@@ -53,15 +55,21 @@ class ReportService:
             "## 风险点",
         ]
         for item in report.get("风险点", []):
+            legal_text = self._legal_basis_text(item)
             lines.extend(
                 [
                     "",
                     f"### {item.get('风险编号', '')} {item.get('风险标题', '')}",
                     f"- 风险等级：{item.get('风险等级', '')}",
+                    f"- 风险条款：{item.get('相关条款', '')}",
                     f"- 问题说明：{item.get('问题说明', '')}",
+                    f"- 可能后果：{item.get('可能后果', '')}",
+                    f"- 法律依据：{legal_text}",
                     f"- 修改方向：{item.get('修改方向', '')}",
+                    f"- 人工复核：{item.get('人工复核状态', '待确认')}",
                 ]
             )
+        lines.extend(["", "## 免责声明", "", str(report.get("免责声明", ""))])
         path.write_text("\n".join(lines), encoding="utf-8")
         return path
 
@@ -77,7 +85,7 @@ class ReportService:
         summary.append(["风险分", score.get("风险分", "")])
         summary.append(["安全分", score.get("安全分", "")])
         risks = workbook.create_sheet("风险明细")
-        risks.append(["风险编号", "等级", "类别", "标题", "相关条款", "问题说明", "修改方向"])
+        risks.append(["风险编号", "等级", "类别", "标题", "相关条款", "问题说明", "可能后果", "法律依据", "修改方向", "人工复核状态"])
         for item in report.get("风险点", []):
             risks.append(
                 [
@@ -87,7 +95,10 @@ class ReportService:
                     item.get("风险标题", ""),
                     item.get("相关条款", ""),
                     item.get("问题说明", ""),
+                    item.get("可能后果", ""),
+                    self._legal_basis_text(item),
                     item.get("修改方向", ""),
+                    item.get("人工复核状态", "待确认"),
                 ]
             )
         suggestions = workbook.create_sheet("修改建议")
@@ -131,6 +142,10 @@ class ReportService:
                 style="List Bullet",
             )
             doc.add_paragraph(str(item.get("问题说明", "")))
+            doc.add_paragraph(f"风险条款：{item.get('相关条款', '')}")
+            doc.add_paragraph(f"可能后果：{item.get('可能后果', '')}")
+            doc.add_paragraph(f"法律依据：{self._legal_basis_text(item)}")
+            doc.add_paragraph(f"人工复核：{item.get('人工复核状态', '待确认')}")
         doc.add_heading("修改建议", level=2)
         for item in report.get("修改建议", []):
             doc.add_paragraph(str(item.get("修改建议", "")), style="List Bullet")
@@ -141,6 +156,8 @@ class ReportService:
             doc.add_paragraph(
                 f"{item.get('来源', '')}：{item.get('内容', '')}", style="List Bullet"
             )
+        doc.add_heading("免责声明", level=2)
+        doc.add_paragraph(str(report.get("免责声明", "")))
         doc.save(str(path))
         return path
 
@@ -187,6 +204,10 @@ class ReportService:
                 )
             )
             story.append(Paragraph(str(item.get("问题说明", "")), normal))
+            story.append(Paragraph(f"风险条款：{item.get('相关条款', '')}", normal))
+            story.append(Paragraph(f"可能后果：{item.get('可能后果', '')}", normal))
+            story.append(Paragraph(f"法律依据：{self._legal_basis_text(item)}", normal))
+            story.append(Paragraph(f"人工复核：{item.get('人工复核状态', '待确认')}", normal))
             story.append(Spacer(1, 5))
         story.extend([Spacer(1, 10), Paragraph("修改建议", heading)])
         for item in report.get("修改建议", [])[:20]:
@@ -194,6 +215,13 @@ class ReportService:
             if item.get("建议条款"):
                 story.append(Paragraph(str(item.get("建议条款")), normal))
             story.append(Spacer(1, 5))
+        story.extend(
+            [
+                Spacer(1, 10),
+                Paragraph("免责声明", heading),
+                Paragraph(str(report.get("免责声明", "")), normal),
+            ]
+        )
         document = SimpleDocTemplate(
             str(path),
             pagesize=A4,
@@ -204,6 +232,47 @@ class ReportService:
         )
         document.build(story)
         return path
+
+    def _snapshot_report(self, review_id: str, report: dict[str, Any]) -> dict[str, Any]:
+        """Freeze human-readable citation fields so later knowledge changes cannot rewrite history."""
+        snapshot = deepcopy(report)
+        snapshot["审查编号"] = review_id
+        snapshot.setdefault(
+            "免责声明",
+            "本报告由人工智能与规则引擎辅助生成，仅供合同风险初筛和内部决策参考，不构成正式法律意见；重要合同请由专业法律人员复核。",
+        )
+        for item in snapshot.get("风险点", []):
+            if not isinstance(item, dict):
+                continue
+            raw_basis = item.get("legalBasis") or item.get("legal_basis") or []
+            verified = []
+            for basis in raw_basis:
+                if not isinstance(basis, dict):
+                    continue
+                verified.append(
+                    {
+                        "legalArticleId": basis.get("legalArticleId"),
+                        "法律名称快照": basis.get("lawName", ""),
+                        "条号快照": basis.get("articleNo", ""),
+                        "引用文本快照": basis.get("contentSummary", ""),
+                        "来源地址快照": basis.get("sourceUrl", ""),
+                    }
+                )
+            item["法律依据快照"] = verified
+            item.setdefault("人工复核状态", "待确认")
+        return snapshot
+
+    def _legal_basis_text(self, item: dict[str, Any]) -> str:
+        basis_items = item.get("法律依据快照") or item.get("legalBasis") or item.get("legal_basis") or []
+        values = []
+        for basis in basis_items:
+            if not isinstance(basis, dict):
+                continue
+            law_name = basis.get("法律名称快照") or basis.get("lawName") or ""
+            article_no = basis.get("条号快照") or basis.get("articleNo") or ""
+            if law_name or article_no:
+                values.append(f"《{law_name}》{article_no}")
+        return "；".join(values) or "未匹配到已核验法律依据"
 
     def _table(self, rows: list[list[str]], font_name: str) -> Table:
         table = Table(rows, colWidths=[32 * mm, 130 * mm])

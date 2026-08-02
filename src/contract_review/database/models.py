@@ -132,6 +132,25 @@ class ContractVersionModel(Base, TimestampMixin):
     version_type: Mapped[str] = mapped_column(String(30), default="original", index=True)
 
 
+class ContractClauseModel(Base):
+    __tablename__ = "contract_clause"
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: new_id("clause")
+    )
+    contract_id: Mapped[str] = mapped_column(String(64), index=True)
+    contract_version_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    clause_no: Mapped[str | None] = mapped_column(String(120), index=True)
+    clause_title: Mapped[str | None] = mapped_column(String(300))
+    clause_type: Mapped[str] = mapped_column(String(120), index=True, default="其他")
+    clause_content: Mapped[str] = mapped_column(Text)
+    page_number: Mapped[int | None] = mapped_column(Integer)
+    start_position: Mapped[int] = mapped_column(Integer)
+    end_position: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+
+
 class ReviewModel(Base, TimestampMixin):
     __tablename__ = "reviews"
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("review"))
@@ -453,8 +472,6 @@ class ReviewIssueLegalArticleModel(Base):
     review_id: Mapped[str] = mapped_column(String(64), index=True)
     created_by: Mapped[str | None] = mapped_column(String(64), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-
-
 class AgentTaskModel(Base, TimestampMixin):
     __tablename__ = "agent_tasks"
     id: Mapped[str] = mapped_column(

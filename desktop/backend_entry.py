@@ -37,7 +37,12 @@ def configure_environment(args: argparse.Namespace) -> None:
             "REDIS_ENABLED": "false",
             "ENABLE_LLM": "false",
             "JWT_SECRET_KEY": secrets.token_urlsafe(48),
-            "BOOTSTRAP_ADMIN_PASSWORD": secrets.token_urlsafe(24),
+            # This is a documented local-demo credential, not a production
+            # secret. The user record is still stored with a password hash and
+            # the password can be changed immediately after the first login.
+            "BOOTSTRAP_ADMIN_EMAIL": "admin@example.com",
+            "BOOTSTRAP_ADMIN_PASSWORD": "Admin12345!",
+            "BOOTSTRAP_ADMIN_NAME": "系统管理员",
             "MODEL_CREDENTIAL_ENCRYPTION_KEY": secrets.token_urlsafe(48),
             "TRUSTED_HOSTS": "127.0.0.1,localhost",
             "ALLOWED_ORIGINS": "tauri://localhost,http://tauri.localhost",

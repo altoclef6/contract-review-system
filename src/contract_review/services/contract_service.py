@@ -355,6 +355,12 @@ class ContractService:
         record = self._find(contract_id)
         return [ContractVersion.model_validate(item) for item in record.get("versions", [])]
 
+    def find_version_by_hash(self, contract_id: str, file_hash: str) -> ContractVersion | None:
+        for version in self.list_versions(contract_id):
+            if version.file_hash and version.file_hash == file_hash:
+                return version
+        return None
+
     def compare_versions(
         self, contract_id: str, payload: VersionCompareRequest
     ) -> VersionComparison:

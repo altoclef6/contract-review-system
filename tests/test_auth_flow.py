@@ -129,6 +129,19 @@ def test_admin_rbac_user_management(tmp_path: Path, monkeypatch) -> None:
         assert users_response.status_code == 200
         assert len(users_response.json()["data"]) == 2
 
+        audit_response = client.get(
+            "/api/v1/admin/audit-logs",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert audit_response.status_code == 200
+        assert any(item["action"] == "auth.login" for item in audit_response.json()["data"])
+
+        denied_audit_response = client.get(
+            "/api/v1/admin/audit-logs",
+            headers={"Authorization": f"Bearer {employee_token}"},
+        )
+        assert denied_audit_response.status_code == 403
+
         disabled_response = client.patch(
             f"/api/v1/admin/users/{employee_id}/disabled",
             headers={"Authorization": f"Bearer {admin_token}"},

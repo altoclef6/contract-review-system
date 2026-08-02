@@ -33,7 +33,7 @@ def create_chat_model(
     kwargs: dict[str, Any] = {
         "model": runtime_config.get("model_name") or resolved_settings.llm_model_name,
         "temperature": runtime_config.get("temperature", resolved_settings.llm_temperature),
-        "timeout": resolved_settings.llm_timeout_seconds,
+        "timeout": int(runtime_config.get("timeout_seconds", resolved_settings.llm_timeout_seconds)),
     }
     if runtime_config.get("max_tokens"):
         kwargs["max_tokens"] = int(runtime_config["max_tokens"])

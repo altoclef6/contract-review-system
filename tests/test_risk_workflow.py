@@ -148,7 +148,7 @@ def test_risk_idor_assignment_comments_revision_and_conflict(tmp_path: Path, mon
         assert owner_statistics.status_code == 200
         assert owner_statistics.json()["data"]["total"] == 1
         assert owner_statistics.json()["data"]["pending_review_count"] == 1
-        assert owner_statistics.json()["data"]["severities"] == {"高": 1}
+        assert owner_statistics.json()["data"]["severities"] == {"HIGH": 1}
         assert attacker_statistics.status_code == 200
         assert attacker_statistics.json()["data"]["total"] == 0
 
@@ -230,6 +230,45 @@ def test_illegal_transition_and_permission_failure_roll_back(tmp_path: Path, mon
         assert unchanged["status"] == "pending_review"
         assert unchanged["revision"] == 1
         assert len(unchanged["state_history"]) == 1
+
+
+def test_ignore_false_positive_and_human_review_are_persisted(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _configure(monkeypatch, tmp_path)
+    with TestClient(create_app()) as client:
+        owner_id, owner_headers = _register(client, "review-owner@example.com")
+        admin_headers = _login(client, "admin@example.com", "Admin12345!")
+        records = _seed(get_settings(), owner_id, "review-human", 3)
+
+        ignored = _post_transition(
+            client, admin_headers, records[0].model_dump(mode="json"), "ignore"
+        )
+        assert ignored.status_code == 200
+        assert ignored.json()["data"]["status"] == "ignored"
+
+        false_positive = _post_transition(
+            client, admin_headers, records[1].model_dump(mode="json"), "false-positive"
+        )
+        assert false_positive.status_code == 200
+        assert false_positive.json()["data"]["status"] == "false_positive"
+
+        path = f"/api/v1/risks/{records[2].risk_id}/human-review"
+        denied = client.put(
+            path,
+            headers=owner_headers,
+            json={"risk_level": "LOW", "review_opinion": "员工越权修改", "expected_revision": 1},
+        )
+        assert denied.status_code == 403
+        modified = client.put(
+            path,
+            headers=admin_headers,
+            json={"risk_level": "LOW", "review_opinion": "结合附件后降为低风险", "expected_revision": 1},
+        )
+        assert modified.status_code == 200
+        assert modified.json()["data"]["severity"] == "LOW"
+        assert modified.json()["data"]["status"] == "modified"
+        assert modified.json()["data"]["review_comment"] == "结合附件后降为低风险"
 
 
 def test_every_disallowed_state_transition_is_rejected(tmp_path: Path, monkeypatch) -> None:

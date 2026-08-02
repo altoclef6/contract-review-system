@@ -42,9 +42,24 @@ class RiskTransitionError(RiskServiceError):
 
 
 TRANSITIONS: dict[RiskStatus, set[RiskStatus]] = {
-    RiskStatus.pending_review: {RiskStatus.confirmed, RiskStatus.rejected},
-    RiskStatus.confirmed: {RiskStatus.remediating, RiskStatus.closed},
+    RiskStatus.pending_review: {
+        RiskStatus.confirmed,
+        RiskStatus.rejected,
+        RiskStatus.ignored,
+        RiskStatus.false_positive,
+        RiskStatus.modified,
+    },
+    RiskStatus.confirmed: {RiskStatus.remediating, RiskStatus.modified, RiskStatus.closed},
     RiskStatus.rejected: {RiskStatus.closed},
+    RiskStatus.ignored: {RiskStatus.closed},
+    RiskStatus.false_positive: {RiskStatus.closed},
+    RiskStatus.modified: {
+        RiskStatus.confirmed,
+        RiskStatus.ignored,
+        RiskStatus.false_positive,
+        RiskStatus.remediating,
+        RiskStatus.closed,
+    },
     RiskStatus.remediating: {RiskStatus.remediated},
     RiskStatus.remediated: {RiskStatus.remediating, RiskStatus.closed},
     RiskStatus.closed: set(),
@@ -228,6 +243,9 @@ class RiskService:
             if actor_role not in {"admin", "legal"} and target in {
                 RiskStatus.confirmed,
                 RiskStatus.rejected,
+                RiskStatus.ignored,
+                RiskStatus.false_positive,
+                RiskStatus.modified,
                 RiskStatus.closed,
             }:
                 raise RiskPermissionError("当前角色不能执行该复核操作")
@@ -315,6 +333,39 @@ class RiskService:
             expected_revision,
             lambda record: setattr(record, "revised_clause", revised_clause.strip()),
         )
+
+    def update_human_review(
+        self,
+        risk_id: str,
+        *,
+        risk_level: str,
+        review_opinion: str,
+        actor_id: str,
+        actor_role: str,
+        expected_revision: int,
+    ) -> RiskRecord:
+        if actor_role not in {"admin", "legal"}:
+            raise RiskPermissionError("当前角色不能修改人工审查结论")
+        self.get(risk_id, actor_id=actor_id, actor_role=actor_role)
+
+        def update(record: RiskRecord) -> None:
+            old = record.status
+            record.severity = risk_level
+            record.review_comment = review_opinion.strip()
+            record.reviewer_id = actor_id
+            record.status = RiskStatus.modified
+            record.state_history.append(
+                RiskStateEvent(
+                    event_id=f"event_{uuid4().hex}",
+                    actor_id=actor_id,
+                    old_status=old,
+                    new_status=RiskStatus.modified,
+                    reason=review_opinion.strip(),
+                    created_at=self._now(),
+                )
+            )
+
+        return self._mutate(risk_id, expected_revision, update)
 
     def _mutate(
         self, risk_id: str, expected_revision: int, update: Callable[[RiskRecord], None]
@@ -404,7 +455,17 @@ class RiskService:
         ai_involved = "AI" in source_value or source_value == "llm_analysis"
         source = RiskSource.llm_analysis if ai_involved else RiskSource.deterministic_rule
         confidence = item.get("confidence")
-        severity = str(item.get("风险等级") or item.get("severity") or "中")
+        raw_severity = str(item.get("riskLevel") or item.get("风险等级") or item.get("severity") or "MEDIUM").upper()
+        severity = {
+            "严重": "HIGH",
+            "高": "HIGH",
+            "中": "MEDIUM",
+            "低": "LOW",
+            "CRITICAL": "HIGH",
+            "HIGH": "HIGH",
+            "MEDIUM": "MEDIUM",
+            "LOW": "LOW",
+        }.get(raw_severity, "MEDIUM")
         event = RiskStateEvent(
             event_id=f"event_{uuid4().hex}",
             actor_id=created_by or "system",

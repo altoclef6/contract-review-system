@@ -1,6 +1,6 @@
 [package]
 name = "contract-review-desktop"
-version = "0.3.0"
+version = "0.3.2"
 description = "合同智审 Windows desktop application"
 authors = ["Publisher placeholder"]
 edition = "2021"

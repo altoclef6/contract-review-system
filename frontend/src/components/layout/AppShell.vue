@@ -18,6 +18,7 @@ const emit = defineEmits<{
   toggle: []
   logout: []
   changePassword: []
+  profile: []
   navigate: []
 }>()
 </script>
@@ -38,6 +39,7 @@ const emit = defineEmits<{
         @toggle="emit('toggle')"
         @logout="emit('logout')"
         @change-password="emit('changePassword')"
+        @profile="emit('profile')"
       />
       <main class="app-main"><slot /></main>
     </section>

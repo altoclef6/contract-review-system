@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     review_task_data_dir: Path = Path("data/review-tasks")
     rule_center_data_dir: Path = Path("data/rule-center")
     knowledge_center_data_dir: Path = Path("data/knowledge-center")
+    legal_knowledge_data_dir: Path = Path("data/legal-knowledge")
     risk_feedback_data_dir: Path = Path("data/risk-feedback")
     legal_knowledge_data_dir: Path = Path("data/legal-knowledge")
     max_upload_size_mb: int = 50

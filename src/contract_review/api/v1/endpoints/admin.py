@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from contract_review.api.dependencies.auth import get_audit_service, get_user_service, require_role
 from contract_review.schemas.api_response import ApiResponse, api_success
@@ -17,6 +19,31 @@ from contract_review.services.audit_service import AuditService
 from contract_review.services.user_service import UserService, UserServiceError
 
 router = APIRouter()
+
+
+@router.get(
+    "/audit-logs",
+    response_model=ApiResponse[list[dict[str, Any]]],
+    summary="操作日志",
+)
+async def list_audit_logs(
+    limit: int = Query(default=200, ge=1, le=500),
+    _: UserPublic = Depends(require_role(UserRole.admin)),
+    users: UserService = Depends(get_user_service),
+    audit: AuditService = Depends(get_audit_service),
+) -> ApiResponse[list[dict[str, Any]]]:
+    users_by_id = {item.id: item for item in users.list_users()}
+    records: list[dict[str, Any]] = []
+    for item in audit.list_events(limit=limit):
+        user = users_by_id.get(str(item.get("actor_id") or ""))
+        records.append(
+            {
+                **item,
+                "operator_name": user.full_name if user else item.get("target") or "系统",
+                "operator_role": user.role.value if user else "system",
+            }
+        )
+    return api_success(records)
 
 
 @router.get("/users", response_model=ApiResponse[list[UserPublic]], summary="用户列表")

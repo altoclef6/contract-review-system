@@ -7,6 +7,7 @@ import EmptyState from '../components/EmptyState.vue'
 import MetricCard from '../components/MetricCard.vue'
 import PageHeader from '../components/PageHeader.vue'
 import RiskLevelTag from '../components/RiskLevelTag.vue'
+import { validateContractFile } from '../services/contracts'
 
 interface TextLocation {
   定位状态: '精确定位' | '相关上下文' | '缺失条款'
@@ -33,7 +34,15 @@ const analysisStepIndex = ref(0)
 let elapsedTimer: number | undefined
 let stepTimer: number | undefined
 
-const analysisSteps = ['正在解析合同', '正在识别关键条款', '正在匹配风险规则', '正在生成修改建议', '正在生成审查报告']
+const analysisSteps = [
+  '正在解析合同',
+  '正在识别合同类型',
+  '正在切分合同条款',
+  '正在匹配风险规则',
+  '正在检索法律依据',
+  '正在生成修改建议',
+  '正在生成审查结果',
+]
 
 const formattedFileSize = computed(() => {
   if (!file.value) return ''
@@ -201,7 +210,18 @@ async function focusRisk(risk: any) {
   highlightedClause.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
-const onChange = (upload: any) => { file.value = upload.raw }
+const onChange = (upload: any) => {
+  const selected = upload.raw as File
+  const validationError = validateContractFile(selected)
+  if (validationError) {
+    uploadRef.value?.clearFiles()
+    file.value = undefined
+    ElMessage.warning(validationError)
+    return
+  }
+  file.value = selected
+  ElMessage.success('文件校验通过，可以开始审查')
+}
 
 function triggerUpload() {
   uploadRef.value?.clearFiles()
@@ -235,12 +255,12 @@ onBeforeUnmount(() => { window.clearInterval(elapsedTimer); window.clearInterval
             :auto-upload="false"
             :limit="1"
             :show-file-list="false"
-            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp"
+            accept=".pdf,.doc,.docx,.txt"
             :on-change="onChange"
           >
             <div v-if="!file" class="upload-placeholder">
               <span class="upload-icon-wrap"><el-icon><UploadFilled /></el-icon></span>
-              <div><strong>拖放合同文件到此处，或点击选择</strong><small>支持 PDF、Word、扫描图片，单文件不超过 50 MB</small></div>
+              <div><strong>拖放合同文件到此处，或点击选择</strong><small>支持 DOCX、文本型 PDF、TXT，单文件不超过 50 MB</small></div>
             </div>
             <div v-else class="selected-file" @click.stop>
               <span class="file-icon"><el-icon><Document /></el-icon></span>
@@ -290,7 +310,7 @@ onBeforeUnmount(() => { window.clearInterval(elapsedTimer); window.clearInterval
         <section v-else class="results">
           <div class="result-toolbar">
             <div><h2>审查结果</h2><p>选择风险项可在合同全文中定位相关原文</p></div>
-            <div class="result-actions"><router-link to="/contracts"><el-button>返回合同列表</el-button></router-link><router-link v-if="!demoMode && file?.type === 'application/pdf'" :to="`/reader/${result.review_id}`"><el-button :icon="View">PDF 阅读器</el-button></router-link><el-button type="primary" :icon="Document" :loading="reportGenerating" @click="showReport">生成并查看报告</el-button></div>
+            <div class="result-actions"><router-link to="/contracts"><el-button>返回合同列表</el-button></router-link><router-link v-if="!demoMode" :to="`/reader/${result.review_id}`"><el-button :icon="View">审查复核工作区</el-button></router-link><el-button type="primary" :icon="Document" :loading="reportGenerating" @click="showReport">生成并查看报告</el-button></div>
           </div>
 
           <div class="review-result-workbench">

@@ -99,6 +99,7 @@ class ModelConfigService:
                 "model_name": payload.model_name,
                 "temperature": payload.temperature,
                 "max_tokens": payload.max_tokens,
+                "timeout_seconds": payload.timeout_seconds,
                 "description": payload.description,
                 "is_active": len(records) == 0,
                 "created_at": now,
@@ -178,6 +179,7 @@ class ModelConfigService:
                     model_name=record["model_name"],
                     temperature=float(record.get("temperature", 0.1)),
                     max_tokens=int(record.get("max_tokens", 4096)),
+                    timeout_seconds=int(record.get("timeout_seconds", 60)),
                 )
         return None
 
@@ -213,6 +215,7 @@ class ModelConfigService:
             {
                 **record,
                 "api_key_masked": self._mask_key(api_key),
+                "timeout_seconds": int(record.get("timeout_seconds", 60)),
             }
         )
 

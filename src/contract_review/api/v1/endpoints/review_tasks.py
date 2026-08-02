@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -141,7 +142,12 @@ async def retry_review_task(
     audit: AuditService = Depends(get_audit_service),
 ) -> ApiResponse[ReviewTaskRecord]:
     try:
-        task = tasks.retry_task(task_id, actor_id=user.id, as_admin=_is_admin(user))
+        task = await asyncio.to_thread(
+            tasks.retry_task,
+            task_id,
+            user.id,
+            _is_admin(user),
+        )
     except ReviewTaskError as exc:
         _raise_api_error(exc)
     audit.log_operation(actor_id=user.id, action="review_tasks.retry", target=task_id)

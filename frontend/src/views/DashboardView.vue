@@ -9,10 +9,15 @@ import PageHeader from '../components/PageHeader.vue'
 import RiskLevelTag from '../components/RiskLevelTag.vue'
 import StatusTag from '../components/StatusTag.vue'
 import { fetchDashboardSummary, type DashboardSummary } from '../services/dashboard'
+import { fetchContracts } from '../services/contracts'
+import { useAuthStore } from '../stores/auth'
 
+const auth = useAuthStore()
 const summary = ref<DashboardSummary>()
 const loading = ref(true)
 const errorMessage = ref('')
+const demoMode = ref(false)
+const overview = ref({ totalContracts: 0, todayAdded: 0, pendingReview: 0, reports: 0 })
 let requestController: AbortController | undefined
 
 const riskColors: Record<string, string> = {
@@ -38,7 +43,19 @@ async function loadDashboard() {
   loading.value = true
   errorMessage.value = ''
   try {
-    summary.value = await fetchDashboardSummary(requestController.signal)
+    const [dashboard, contracts] = await Promise.all([
+      fetchDashboardSummary(requestController.signal),
+      fetchContracts({ page: 1, page_size: 100, sort_by: 'updated_at', sort_order: 'desc' }, requestController.signal),
+    ])
+    summary.value = dashboard
+    const today = new Date().toLocaleDateString('sv-SE')
+    overview.value = {
+      totalContracts: contracts.total,
+      todayAdded: contracts.items.filter((item) => new Date(item.created_at).toLocaleDateString('sv-SE') === today).length,
+      pendingReview: contracts.items.filter((item) => ['draft', 'reviewing', 'legal_review', 'manager_review'].includes(item.status)).length,
+      reports: dashboard.metrics.monthly_review_count,
+    }
+    demoMode.value = false
   } catch (error: any) {
     if (error?.code !== 'ERR_CANCELED') {
       errorMessage.value = error?.response?.data?.message || error?.response?.data?.detail || '无法获取工作台数据，请稍后重试。'
@@ -46,6 +63,28 @@ async function loadDashboard() {
   } finally {
     if (!requestController.signal.aborted) loading.value = false
   }
+}
+
+function loadDemoDashboard() {
+  const today = new Date()
+  const iso = (offset: number) => new Date(today.getTime() + offset * 86_400_000).toISOString().slice(0, 10)
+  summary.value = {
+    generated_at: today.toISOString(), time_zone: 'Asia/Shanghai', scope: 'all',
+    metrics: { monthly_review_count: 64, monthly_high_risk_contract_count: 12, pending_human_review_risk_count: 8, average_review_duration_ms: 12800 },
+    review_trend_30d: Array.from({ length: 30 }, (_, index) => ({ date: iso(index - 29), count: [1,2,1,3,2,4,3][index % 7] })),
+    risk_level_distribution: [{ key: 'critical', label: '严重风险', value: 2 }, { key: 'high', label: '高风险', value: 10 }, { key: 'medium', label: '中风险', value: 21 }, { key: 'low', label: '低风险', value: 31 }],
+    contract_type_distribution: [{ key: 'software_development', label: '软件开发合同', value: 24 }, { key: 'lease', label: '租赁合同', value: 18 }, { key: 'nda', label: '保密协议', value: 16 }, { key: 'service', label: '服务合同', value: 13 }, { key: 'other', label: '其他合同', value: 16 }],
+    top_risk_rules: [{ rule_id: 'R-PAY-01', title: '付款条件不明确', count: 18 }, { rule_id: 'R-ACC-02', title: '验收标准缺失', count: 14 }, { rule_id: 'R-IP-03', title: '知识产权不清', count: 11 }, { rule_id: 'R-LIA-04', title: '违约责任失衡', count: 9 }, { rule_id: 'R-TER-05', title: '解约责任过重', count: 7 }],
+    recent_tasks: [
+      { review_id: 'demo-001', contract_name: '软件开发服务合同', contract_type: 'software_development', status: 'completed', risk_level: '高风险', started_at: today.toISOString(), duration_ms: 12600 },
+      { review_id: 'demo-002', contract_name: '办公场地租赁合同', contract_type: 'lease', status: 'completed', risk_level: '高风险', started_at: new Date(today.getTime() - 3_600_000).toISOString(), duration_ms: 9800 },
+      { review_id: 'demo-003', contract_name: '员工保密协议', contract_type: 'nda', status: 'completed', risk_level: '中风险', started_at: new Date(today.getTime() - 7_200_000).toISOString(), duration_ms: 11200 },
+    ],
+    todos: [{ id: 'demo-todo-1', source: 'workflow', title: '待复核高风险条款', description: '软件开发服务合同：付款与验收条款需要人工确认。', status: 'legal_review', updated_at: today.toISOString(), action_path: '/risks' }],
+    unavailable_reasons: {}, statistics_notes: ['当前为验收演示数据，所有数字均已在界面中明确标识，不写入业务数据库。'],
+  }
+  overview.value = { totalContracts: 87, todayAdded: 5, pendingReview: 8, reports: 64 }
+  demoMode.value = true
 }
 
 onMounted(loadDashboard)
@@ -86,9 +125,6 @@ const rulesOption = computed(() => {
   }
 })
 
-function metricValue(value: number | null | undefined) {
-  return value === null || value === undefined ? '暂无数据' : value
-}
 function duration(value: number | null | undefined) {
   if (value === null || value === undefined) return '暂无数据'
   return value < 1000 ? `${Math.round(value)} ms` : `${(value / 1000).toFixed(1)} 秒`
@@ -100,6 +136,10 @@ function formatDate(value: string | null) {
 </script>
 
 <template>
+  <section class="dashboard-welcome">
+    <div><small>{{ demoMode ? '验收演示数据' : '企业合同工作区' }}</small><h1>{{ auth.user?.full_name || '当前用户' }}，欢迎回来</h1><p>集中查看合同进度、风险分布与待办事项，今天也从最重要的风险开始。</p></div>
+    <div class="dashboard-quick-actions"><router-link to="/contracts"><el-button>上传合同</el-button></router-link><router-link to="/review"><el-button type="primary">发起智能审查</el-button></router-link><router-link to="/reports"><el-button>查看报告</el-button></router-link></div>
+  </section>
   <PageHeader title="企业工作台" description="基于当前授权范围查看合同审查、风险分布和真实待办。" eyebrow="Dashboard">
     <template #actions>
       <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
@@ -111,13 +151,14 @@ function formatDate(value: string | null) {
   <ErrorState v-else-if="errorMessage && !summary" title="工作台加载失败" :description="errorMessage" @retry="loadDashboard" />
 
   <template v-else-if="summary">
+    <el-alert v-if="demoMode" title="当前为验收演示数据，不会写入合同、审查或报告记录。点击刷新即可恢复真实数据。" type="warning" :closable="false" show-icon />
+    <section v-else-if="overview.totalContracts === 0" class="dashboard-demo-callout"><div><strong>当前还没有业务数据</strong><p>可以先上传合同，也可以载入一组明确标识的演示数据检查仪表盘效果。</p></div><el-button @click="loadDemoDashboard">载入验收演示数据</el-button></section>
     <section class="dashboard-metrics" aria-label="本月审查指标">
-      <MetricCard label="本月审查合同数" :value="summary.metrics.monthly_review_count" unit="份" />
-      <MetricCard label="高风险合同数" :value="summary.metrics.monthly_high_risk_contract_count" unit="份" tone="high" />
-      <MetricCard label="待人工复核风险数" :value="metricValue(summary.metrics.pending_human_review_risk_count)" tone="medium">
-        <small v-if="summary.metrics.pending_human_review_risk_count === null">风险复核状态尚未持久化</small>
-      </MetricCard>
-      <MetricCard label="平均审查耗时" :value="duration(summary.metrics.average_review_duration_ms)" />
+      <MetricCard label="合同总数" :value="overview.totalContracts" unit="份" />
+      <MetricCard label="今日新增" :value="overview.todayAdded" unit="份" />
+      <MetricCard label="待审查" :value="overview.pendingReview" unit="份" tone="medium" />
+      <MetricCard label="高风险合同" :value="summary.metrics.monthly_high_risk_contract_count" unit="份" tone="high" />
+      <MetricCard label="已生成报告" :value="overview.reports" unit="份" />
     </section>
 
     <section class="dashboard-chart-grid">
@@ -158,31 +199,39 @@ function formatDate(value: string | null) {
 </template>
 
 <style scoped>
-.dashboard-skeleton { padding: 24px; border: 1px solid var(--glass-border); border-radius: var(--radius-lg); background: var(--glass-bg); backdrop-filter: blur(16px); }
-.dashboard-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 20px; margin-bottom: 24px; }
-.dashboard-metrics :deep(.common-metric-card > small) { display: block; margin-top: 8px; color: var(--text-secondary); font-size: 11px; }
+.dashboard-welcome { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 18px; padding: 26px 28px; border: 1px solid #dce7f0; border-radius: 22px; background: linear-gradient(115deg, rgba(255,255,255,.96), rgba(240,246,250,.96)); box-shadow: 0 10px 28px rgba(45,72,98,.07); }
+.dashboard-welcome small { color: #5d7e9e; font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+.dashboard-welcome h1 { margin: 5px 0 4px; font-size: 24px; }
+.dashboard-welcome p { margin: 0; color: var(--text-secondary); }
+.dashboard-quick-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.dashboard-demo-callout { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 0 0 18px; padding: 15px 18px; border: 1px solid #dce7f0; border-radius: 14px; background: #f7fafc; }
+.dashboard-demo-callout strong { font-size: 13px; }
+.dashboard-demo-callout p { margin: 3px 0 0; color: var(--text-secondary); font-size: 12px; }
+.dashboard-skeleton { padding: 24px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+.dashboard-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-top: 18px; margin-bottom: 24px; }
+.dashboard-metrics :deep(.common-metric-card > small) { display: block; margin-top: 8px; color: var(--text-muted); font-size: 11px; }
 .dashboard-metrics :deep(.common-metric-card > strong) { min-height: 32px; color: #273142; font-size: 23px; line-height: 32px; }
 .dashboard-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .dashboard-panel { min-width: 0; overflow: hidden; border: 1px solid #e6e9ef; border-radius: 10px; background: var(--surface); box-shadow: 0 1px 3px rgba(23, 32, 51, 0.04); }
 .dashboard-panel > header { min-height: 62px; display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--border); }
 .dashboard-panel h2 { margin: 0; color: #273142; font-size: 15px; line-height: 22px; font-weight: 600; }
-.dashboard-panel header p { margin: 2px 0 0; color: var(--text-secondary); font-size: 12px; }
+.dashboard-panel header p { margin: 2px 0 0; color: var(--text-muted); font-size: 12px; }
 .dashboard-chart { width: 100%; height: 260px; }
 .dashboard-panel :deep(.common-state) { min-height: 260px; border: 0; border-radius: 0; box-shadow: none; }
 .dashboard-list-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.8fr); gap: 20px; margin-top: 20px; }
 .recent-task-panel { overflow-x: auto; }
 .todo-list { padding: 10px; }
-.todo-item { display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px; border-radius: var(--radius-md); transition: background var(--transition-fast), box-shadow var(--transition-fast); }
-.todo-item:hover { background: rgba(255, 255, 255, 0.72); box-shadow: 0 3px 10px rgba(51, 65, 112, 0.05); }
+.todo-item { display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px; border-radius: var(--radius-md); }
+.todo-item:hover { background: var(--surface-soft); }
 .todo-item__mark { align-self: stretch; border-radius: 2px; background: var(--risk-medium); }
 .todo-item strong { font-size: 13px; }
 .todo-item p { margin: 3px 0; color: var(--text-secondary); font-size: 12px; line-height: 18px; }
 .todo-item small { color: var(--text-muted); font-size: 11px; }
 .todo-item > span:last-child { color: var(--primary); font-size: 12px; font-weight: 700; }
-.statistics-notes { margin-top: 20px; padding: 14px 18px; border: 1px solid var(--glass-border); border-radius: var(--radius-md); color: var(--text-secondary); background: rgba(255, 255, 255, 0.46); backdrop-filter: blur(10px); font-size: 12px; }
+.statistics-notes { margin-top: 16px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-secondary); background: var(--surface-soft); font-size: 12px; }
 .statistics-notes summary { cursor: pointer; font-weight: 700; }
 .statistics-notes ul { margin: 10px 0 0; padding-left: 20px; }
 .statistics-notes li + li { margin-top: 4px; }
 @media (max-width: 1180px) { .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dashboard-list-grid { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .dashboard-metrics, .dashboard-chart-grid { grid-template-columns: 1fr; } .dashboard-panel { overflow-x: auto; } .dashboard-chart { min-width: 320px; } }
+@media (max-width: 760px) { .dashboard-welcome, .dashboard-demo-callout { align-items: flex-start; flex-direction: column; } .dashboard-quick-actions { justify-content: flex-start; } .dashboard-metrics, .dashboard-chart-grid { grid-template-columns: 1fr; } .dashboard-panel { overflow-x: auto; } .dashboard-chart { min-width: 320px; } }
 </style>
