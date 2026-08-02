@@ -1,6 +1,6 @@
-from fastapi.testclient import TestClient
-
 from pathlib import Path
+
+from fastapi.testclient import TestClient
 
 from contract_review.core.config import get_settings
 from contract_review.main import create_app

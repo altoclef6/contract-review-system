@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -141,17 +142,12 @@ class UserService:
 
     def set_disabled(self, *, user_id: str, disabled: bool) -> UserPublic:
         if self.settings.database_enabled:
-            return self._update_database_user(
-                user_id,
-                lambda model: (
-                    setattr(model, "is_active", not disabled),
-                    setattr(
-                        model,
-                        "token_version",
-                        model.token_version + 1 if disabled else model.token_version,
-                    ),
-                ),
-            )
+            def update_disabled(model: UserModel) -> None:
+                model.is_active = not disabled
+                if disabled:
+                    model.token_version += 1
+
+            return self._update_database_user(user_id, update_disabled)
         with self._lock:
             users = self._load()
             for record in users:
@@ -166,13 +162,11 @@ class UserService:
 
     def set_role(self, *, user_id: str, role: UserRole) -> UserPublic:
         if self.settings.database_enabled:
-            return self._update_database_user(
-                user_id,
-                lambda model: (
-                    setattr(model, "role", role.value),
-                    setattr(model, "token_version", model.token_version + 1),
-                ),
-            )
+            def update_role(model: UserModel) -> None:
+                model.role = role.value
+                model.token_version += 1
+
+            return self._update_database_user(user_id, update_role)
         with self._lock:
             users = self._load()
             for record in users:
@@ -187,13 +181,11 @@ class UserService:
     def reset_password(self, *, user_id: str) -> tuple[UserPublic, str]:
         temporary_password = generate_temporary_password()
         if self.settings.database_enabled:
-            user = self._update_database_user(
-                user_id,
-                lambda model: (
-                    setattr(model, "password_hash", hash_password(temporary_password)),
-                    setattr(model, "token_version", model.token_version + 1),
-                ),
-            )
+            def update_password(model: UserModel) -> None:
+                model.password_hash = hash_password(temporary_password)
+                model.token_version += 1
+
+            user = self._update_database_user(user_id, update_password)
             return user, temporary_password
         with self._lock:
             users = self._load()
@@ -331,9 +323,11 @@ class UserService:
             company = CompanyModel(name="默认企业", code="default")
             session.add(company)
             session.flush()
-        return company.id
+        return cast(str, company.id)
 
-    def _update_database_user(self, user_id: str, update: Any) -> UserPublic:
+    def _update_database_user(
+        self, user_id: str, update: Callable[[UserModel], None]
+    ) -> UserPublic:
         with self._lock, get_session_factory()() as session:
             model = session.get(UserModel, user_id)
             if model is None:

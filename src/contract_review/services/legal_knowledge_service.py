@@ -595,106 +595,106 @@ class LegalKnowledgeService:
                     setattr(item, key, value)
                 return item
 
-            for item in documents:
+            for document in documents:
                 upsert(
                     LegalDocumentModel,
-                    item.id,
+                    document.id,
                     {
-                        "name": item.name,
-                        "document_type": item.document_type,
-                        "issuing_authority": item.issuing_authority,
-                        "document_number": item.document_number,
-                        "publication_date": item.publication_date,
-                        "effective_date": item.effective_date,
-                        "expiry_date": item.expiry_date,
-                        "effect_status": item.effect_status.value,
-                        "version_number": item.version_number,
-                        "official_source_url": item.official_source_url,
-                        "source_name": item.source_name,
-                        "full_text": item.full_text,
-                        "verification_status": item.verification_status.value,
-                        "is_enabled": item.is_enabled,
-                        "created_by": item.created_by,
-                        "created_at": item.created_at,
-                        "updated_at": item.updated_at,
+                        "name": document.name,
+                        "document_type": document.document_type,
+                        "issuing_authority": document.issuing_authority,
+                        "document_number": document.document_number,
+                        "publication_date": document.publication_date,
+                        "effective_date": document.effective_date,
+                        "expiry_date": document.expiry_date,
+                        "effect_status": document.effect_status.value,
+                        "version_number": document.version_number,
+                        "official_source_url": document.official_source_url,
+                        "source_name": document.source_name,
+                        "full_text": document.full_text,
+                        "verification_status": document.verification_status.value,
+                        "is_enabled": document.is_enabled,
+                        "created_by": document.created_by,
+                        "created_at": document.created_at,
+                        "updated_at": document.updated_at,
                     },
                 )
 
-            for item in versions:
+            for version in versions:
                 upsert(
                     LegalDocumentVersionModel,
-                    item.id,
+                    version.id,
                     {
-                        "legal_document_id": item.legal_document_id,
-                        "version_number": item.version_number,
-                        "publication_date": item.publication_date,
-                        "effective_date": item.effective_date,
-                        "expiry_date": item.expiry_date,
-                        "effect_status": item.effect_status.value,
-                        "official_source_url": item.official_source_url,
-                        "source_name": item.source_name,
-                        "full_text": item.full_text,
-                        "verification_status": item.verification_status.value,
-                        "change_summary": item.change_summary,
-                        "created_by": item.created_by,
-                        "created_at": item.created_at,
+                        "legal_document_id": version.legal_document_id,
+                        "version_number": version.version_number,
+                        "publication_date": version.publication_date,
+                        "effective_date": version.effective_date,
+                        "expiry_date": version.expiry_date,
+                        "effect_status": version.effect_status.value,
+                        "official_source_url": version.official_source_url,
+                        "source_name": version.source_name,
+                        "full_text": version.full_text,
+                        "verification_status": version.verification_status.value,
+                        "change_summary": version.change_summary,
+                        "created_by": version.created_by,
+                        "created_at": version.created_at,
                     },
                 )
 
-            for item in articles:
+            for article in articles:
                 upsert(
                     LegalArticleModel,
-                    item.id,
+                    article.id,
                     {
-                        "legal_document_id": item.legal_document_id,
-                        "legal_document_version_id": item.legal_document_version_id,
-                        "chapter_no": item.chapter_no,
-                        "chapter_name": item.chapter_name,
-                        "article_no": item.article_no,
-                        "article_no_numeric": item.article_no_numeric,
-                        "title": item.title,
-                        "content": item.content,
-                        "keywords": item.keywords,
-                        "legal_topics": item.legal_topics,
-                        "contract_types": item.contract_types,
-                        "is_effective": item.is_effective,
-                        "verification_status": item.verification_status.value,
-                        "created_by": item.created_by,
-                        "created_at": item.created_at,
-                        "updated_at": item.updated_at,
+                        "legal_document_id": article.legal_document_id,
+                        "legal_document_version_id": article.legal_document_version_id,
+                        "chapter_no": article.chapter_no,
+                        "chapter_name": article.chapter_name,
+                        "article_no": article.article_no,
+                        "article_no_numeric": article.article_no_numeric,
+                        "title": article.title,
+                        "content": article.content,
+                        "keywords": article.keywords,
+                        "legal_topics": article.legal_topics,
+                        "contract_types": article.contract_types,
+                        "is_effective": article.is_effective,
+                        "verification_status": article.verification_status.value,
+                        "created_by": article.created_by,
+                        "created_at": article.created_at,
+                        "updated_at": article.updated_at,
                     },
                 )
 
-            for item in rules:
+            for rule in rules:
                 upsert(
                     ContractRiskRuleModel,
-                    item.id,
+                    rule.id,
                     {
-                        "rule_code": item.rule_code,
-                        "rule_name": item.rule_name,
-                        "contract_types": item.contract_types,
-                        "clause_type": item.clause_type,
-                        "risk_level": item.risk_level,
-                        "trigger_condition": item.trigger_condition,
-                        "keywords": item.keywords,
-                        "model_prompt": item.model_prompt,
-                        "risk_description": item.risk_description,
-                        "possible_consequence": item.possible_consequence,
-                        "modification_advice": item.modification_advice,
-                        "recommended_clause": item.recommended_clause,
-                        "is_enabled": item.is_enabled,
-                        "created_by": item.created_by,
-                        "created_at": item.created_at,
-                        "updated_at": item.updated_at,
+                        "rule_code": rule.rule_code,
+                        "rule_name": rule.rule_name,
+                        "contract_types": rule.contract_types,
+                        "clause_type": rule.clause_type,
+                        "risk_level": rule.risk_level,
+                        "trigger_condition": rule.trigger_condition,
+                        "keywords": rule.keywords,
+                        "model_prompt": rule.model_prompt,
+                        "risk_description": rule.risk_description,
+                        "possible_consequence": rule.possible_consequence,
+                        "modification_advice": rule.modification_advice,
+                        "recommended_clause": rule.recommended_clause,
+                        "is_enabled": rule.is_enabled,
+                        "created_by": rule.created_by,
+                        "created_at": rule.created_at,
+                        "updated_at": rule.updated_at,
                     },
                 )
 
                 current_links = session.scalars(
                     select(RiskRuleLegalArticleModel).where(
-                        RiskRuleLegalArticleModel.risk_rule_id == item.id
+                        RiskRuleLegalArticleModel.risk_rule_id == rule.id
                     )
                 ).all()
-                desired_ids = set(item.legal_article_ids)
+                desired_ids = set(rule.legal_article_ids)
                 for link in current_links:
                     if link.legal_article_id not in desired_ids:
                         session.delete(link)
@@ -702,9 +702,9 @@ class LegalKnowledgeService:
                 for article_id in desired_ids - existing_ids:
                     session.add(
                         RiskRuleLegalArticleModel(
-                            risk_rule_id=item.id,
+                            risk_rule_id=rule.id,
                             legal_article_id=article_id,
-                            created_by=item.created_by,
+                            created_by=rule.created_by,
                         )
                     )
 

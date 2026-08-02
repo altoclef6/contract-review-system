@@ -9,7 +9,7 @@ from contract_review.schemas.agent import NodeTelemetry, ValidatorOutput, utcnow
 from contract_review.services.legal_knowledge_service import LegalKnowledgeRetriever
 
 
-async def validator_node(state: ContractReviewState) -> dict:
+async def validator_node(state: ContractReviewState) -> dict[str, Any]:
     emit_stage(state, "VALIDATING_RESULT")
     started_at = utcnow()
     started = perf_counter()

@@ -28,6 +28,7 @@ from contract_review.api.dependencies.auth import (
 from contract_review.core.config import Settings, get_settings
 from contract_review.schemas.api_response import ApiResponse, api_success
 from contract_review.schemas.auth import Permission, UserPublic
+from contract_review.schemas.contract_clause import ContractClause
 from contract_review.schemas.contract_management import (
     ContractAuditEntry,
     ContractCategory,
@@ -45,11 +46,10 @@ from contract_review.schemas.contract_management import (
     VersionCompareRequest,
     VersionComparison,
 )
-from contract_review.schemas.contract_clause import ContractClause
 from contract_review.schemas.review_task import ReviewTaskCreate, ReviewTaskRecord
 from contract_review.services.audit_service import AuditService
-from contract_review.services.contract_service import ContractService, ContractServiceError
 from contract_review.services.contract_clause_service import ContractClauseService
+from contract_review.services.contract_service import ContractService, ContractServiceError
 from contract_review.services.document_loader import DocumentLoader
 from contract_review.services.history_service import HistoryService
 from contract_review.services.review_task_service import ReviewTaskService

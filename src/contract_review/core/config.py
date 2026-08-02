@@ -44,7 +44,6 @@ class Settings(BaseSettings):
     knowledge_center_data_dir: Path = Path("data/knowledge-center")
     legal_knowledge_data_dir: Path = Path("data/legal-knowledge")
     risk_feedback_data_dir: Path = Path("data/risk-feedback")
-    legal_knowledge_data_dir: Path = Path("data/legal-knowledge")
     max_upload_size_mb: int = 50
     max_pdf_pages: int = 500
     max_image_pixels: int = 80_000_000

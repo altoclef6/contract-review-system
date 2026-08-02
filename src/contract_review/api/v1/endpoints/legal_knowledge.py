@@ -1,6 +1,8 @@
 # ruff: noqa: B008
 from __future__ import annotations
 
+from typing import NoReturn
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from contract_review.api.dependencies.auth import (
@@ -42,7 +44,7 @@ def get_service(settings: Settings = Depends(get_settings)) -> LegalKnowledgeSer
     return LegalKnowledgeService(settings)
 
 
-def _raise_service_error(exc: LegalKnowledgeError) -> None:
+def _raise_service_error(exc: LegalKnowledgeError) -> NoReturn:
     if isinstance(exc, LegalKnowledgeConflictError):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     if str(exc).startswith("关联法条不存在"):

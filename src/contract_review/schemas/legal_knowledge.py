@@ -42,7 +42,7 @@ class LegalDocumentWrite(BaseModel):
         return None if value == "" else value
 
     @model_validator(mode="after")
-    def verified_content_requires_source(self) -> "LegalDocumentWrite":
+    def verified_content_requires_source(self) -> LegalDocumentWrite:
         if self.verification_status == VerificationStatus.verified:
             if not self.official_source_url or not self.full_text.strip():
                 raise ValueError("标记为已核验时必须提供官方来源地址和法律全文")
@@ -130,7 +130,7 @@ class LegalArticleWrite(BaseModel):
     verification_status: VerificationStatus = VerificationStatus.pending_verification
 
     @model_validator(mode="after")
-    def pending_placeholder_cannot_be_effective(self) -> "LegalArticleWrite":
+    def pending_placeholder_cannot_be_effective(self) -> LegalArticleWrite:
         if self.verification_status != VerificationStatus.verified and self.is_effective:
             raise ValueError("待核验或已驳回条文不能标记为有效")
         return self

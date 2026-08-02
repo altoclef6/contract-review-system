@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 
@@ -309,7 +309,7 @@ class AgentTaskService:
             raise AgentTaskError("Agent 任务不存在")
         if not company_scope and task.created_by != actor_id:
             raise AgentTaskError("Agent 任务不存在")
-        return task
+        return cast(AgentTaskModel, task)
 
     @staticmethod
     def _event(

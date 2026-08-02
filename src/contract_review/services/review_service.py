@@ -24,9 +24,9 @@ from contract_review.schemas.contract_management import (
     ContractVersionCreate,
 )
 from contract_review.schemas.review import ReviewResponse
+from contract_review.services.contract_clause_service import ContractClauseService
 from contract_review.services.contract_service import ContractService, ContractServiceError
 from contract_review.services.document_loader import DocumentLoader
-from contract_review.services.contract_clause_service import ContractClauseService
 from contract_review.services.history_service import HistoryService, build_history_item
 from contract_review.services.legal_knowledge_service import LegalKnowledgeService
 from contract_review.services.model_config_service import ModelConfigService
@@ -166,7 +166,11 @@ class ReviewService:
                 for item in located_findings
             }
             for persisted in persisted_risks:
-                source = findings_by_source_id.get(persisted.source_risk_id, {})
+                source = (
+                    findings_by_source_id.get(persisted.source_risk_id, {})
+                    if persisted.source_risk_id
+                    else {}
+                )
                 article_ids = [
                     str(item.get("legalArticleId"))
                     for item in source.get("legalBasis", source.get("legal_basis", []))

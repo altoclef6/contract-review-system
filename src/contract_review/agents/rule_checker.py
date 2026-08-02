@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from time import perf_counter
+from typing import Any
 
 from contract_review.agents.compliance_checker import _rule_match_to_legacy
 from contract_review.core.config import get_settings
@@ -10,7 +11,7 @@ from contract_review.schemas.agent import NodeTelemetry, RuleCheckerOutput, utcn
 from contract_review.services.legal_knowledge_service import LegalKnowledgeRetriever
 
 
-async def rule_checker_node(state: ContractReviewState) -> dict:
+async def rule_checker_node(state: ContractReviewState) -> dict[str, Any]:
     emit_stage(state, "RULE_REVIEW")
     started_at = utcnow()
     started = perf_counter()

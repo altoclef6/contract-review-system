@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from time import perf_counter
+from typing import Any
 
-from contract_review.graph.state import ContractReviewState, emit_stage
 from contract_review.core.config import get_settings
+from contract_review.graph.state import ContractReviewState, emit_stage
 from contract_review.schemas.agent import KnowledgeRetrieverOutput, NodeTelemetry, utcnow
-from contract_review.services.legal_knowledge_service import LegalKnowledgeRetriever
 from contract_review.services.knowledge_service import KnowledgeService
+from contract_review.services.legal_knowledge_service import LegalKnowledgeRetriever
 
 
-async def knowledge_retriever_node(state: ContractReviewState) -> dict:
+async def knowledge_retriever_node(state: ContractReviewState) -> dict[str, Any]:
     emit_stage(state, "KNOWLEDGE_RETRIEVAL")
     started_at = utcnow()
     started = perf_counter()

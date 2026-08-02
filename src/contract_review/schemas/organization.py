@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -12,14 +13,14 @@ class CompanyPublic(BaseModel):
     name: str
     code: str
     status: str
-    settings: dict
+    settings: dict[str, Any]
     created_at: datetime
     updated_at: datetime
 
 
 class CompanyUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
-    settings: dict | None = None
+    settings: dict[str, Any] | None = None
 
 
 class DepartmentCreate(BaseModel):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -20,7 +21,7 @@ class AgentTaskCreate(BaseModel):
     task_type: str = Field(min_length=1, max_length=80)
     objective: str = Field(min_length=1, max_length=2000)
     contract_id: str | None = None
-    context: dict = Field(default_factory=dict)
+    context: dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentStepPublic(BaseModel):
@@ -29,8 +30,8 @@ class AgentStepPublic(BaseModel):
     name: str
     status: str
     requires_confirmation: bool
-    input_data: dict
-    output_data: dict
+    input_data: dict[str, Any]
+    output_data: dict[str, Any]
     started_at: datetime | None
     finished_at: datetime | None
 
@@ -41,8 +42,8 @@ class AgentToolCallPublic(BaseModel):
     tool_name: str
     risk_level: str
     status: str
-    arguments: dict
-    output: dict
+    arguments: dict[str, Any]
+    output: dict[str, Any]
     confirmed_by: str | None
     confirmed_at: datetime | None
 
@@ -50,7 +51,7 @@ class AgentToolCallPublic(BaseModel):
 class AgentEventPublic(BaseModel):
     id: str
     event_type: str
-    payload: dict
+    payload: dict[str, Any]
     created_at: datetime
 
 
@@ -63,9 +64,9 @@ class AgentTaskPublic(BaseModel):
     objective: str
     status: AgentTaskStatus
     current_step: int
-    plan: list[dict]
-    context: dict
-    result: dict
+    plan: list[dict[str, Any]]
+    context: dict[str, Any]
+    result: dict[str, Any]
     safe_error_message: str | None
     created_at: datetime
     updated_at: datetime

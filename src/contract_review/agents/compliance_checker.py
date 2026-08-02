@@ -224,10 +224,14 @@ def _normalize_llm_findings(
             "MEDIUM": "中",
             "HIGH": "高",
         }.get(risk_level, item.get("风险等级") or item.get("等级") or "中")
-        legal_article_ids = item.get("legalArticleIds") if isinstance(item.get("legalArticleIds"), list) else []
-        basis = [{"legalArticleId": value} for value in legal_article_ids if value]
-        if not basis and isinstance(item.get("legalBasis"), list):
-            basis = item.get("legalBasis")
+        raw_article_ids = item.get("legalArticleIds")
+        legal_article_ids: list[Any] = raw_article_ids if isinstance(raw_article_ids, list) else []
+        basis: list[dict[str, Any]] = [
+            {"legalArticleId": value} for value in legal_article_ids if value
+        ]
+        raw_legal_basis = item.get("legalBasis")
+        if not basis and isinstance(raw_legal_basis, list):
+            basis = [entry for entry in raw_legal_basis if isinstance(entry, dict)]
         risk_name = item.get("riskName") or item.get("风险标题") or item.get("标题") or "AI识别风险"
         original_clause = item.get("originalClause") or item.get("相关条款") or item.get("条款") or ""
         description = item.get("riskDescription") or item.get("问题说明") or item.get("原因") or item.get("说明") or ""
@@ -282,7 +286,7 @@ def _risk_summary(findings: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-async def compliance_checker_node(state: ContractReviewState) -> dict:
+async def compliance_checker_node(state: ContractReviewState) -> dict[str, Any]:
     emit_stage(state, "LLM_REVIEW")
     text = state.get("raw_text", "")
     fields = state.get("extracted_fields", {})

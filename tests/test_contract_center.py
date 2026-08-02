@@ -173,7 +173,7 @@ def test_txt_upload_splits_clauses_and_rejects_duplicate(tmp_path: Path, monkeyp
         "第一条 项目范围\n乙方负责开发合同审查系统。\n\n"
         "第二条 付款条件\n甲方在验收后十日内付款。\n\n"
         "第三条 验收标准\n双方依据附件功能清单完成验收。"
-    ).encode("utf-8")
+    ).encode()
     with TestClient(create_app()) as client:
         owner_headers = _register(client, "clause-owner@example.com")
         attacker_headers = _register(client, "clause-attacker@example.com")

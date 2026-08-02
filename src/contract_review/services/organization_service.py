@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import select
 
 from contract_review.core.config import Settings
@@ -29,7 +31,7 @@ class OrganizationService:
             return CompanyPublic.model_validate(model, from_attributes=True)
 
     def update_company(
-        self, company_id: str, *, name: str | None, settings: dict | None
+        self, company_id: str, *, name: str | None, settings: dict[str, Any] | None
     ) -> CompanyPublic:
         self._require_database()
         with get_session_factory()() as session:

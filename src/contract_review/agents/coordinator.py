@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 
 from contract_review.graph.state import ContractReviewState
 from contract_review.services.knowledge_service import KnowledgeService
 from contract_review.services.risk_scoring import calculate_risk_score
 
 
-async def coordinator_node(state: ContractReviewState) -> dict:
+async def coordinator_node(state: ContractReviewState) -> dict[str, Any]:
     if state.get("final_report"):
         return {"next_step": "finish"}
 
